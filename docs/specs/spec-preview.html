@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Kit — Design Spec (v3)</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; color: #1a1a2e; background: #fafafa; line-height: 1.7; }
+  h1 { border-bottom: 2px solid #e0e0e0; padding-bottom: 12px; color: #0f0f23; }
+  h2 { margin-top: 2.5em; color: #16213e; border-bottom: 1px solid #eee; padding-bottom: 8px; }
+  h3 { color: #1a1a40; }
+  code { background: #f0f0f5; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+  pre { background: #1a1a2e; color: #e0e0e0; padding: 16px 20px; border-radius: 8px; overflow-x: auto; line-height: 1.4; font-size: 0.85em; }
+  pre code { background: none; color: inherit; padding: 0; }
+  table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+  th, td { border: 1px solid #ddd; padding: 10px 14px; text-align: left; }
+  th { background: #1a1a2e; color: white; }
+  tr:nth-child(even) { background: #f5f5fa; }
+  blockquote { border-left: 4px solid #4a4ae0; margin: 1em 0; padding: 0.5em 1em; background: #f0f0ff; }
+  hr { border: none; border-top: 1px solid #e0e0e0; margin: 2em 0; }
+  a { color: #4a4ae0; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  /* Scroll to top */
+  html { scroll-behavior: smooth; }
+</style>
+</head>
+<body><h1 id="kit-agentic-ready-personal-toolbox">Kit — Agentic-Ready Personal Toolbox</h1>
+<p><strong>Date:</strong> 2026-03-25
+<strong>Status:</strong> Draft
+<strong>Author:</strong> Paul Fiedler + Claude</p>
+<hr />
+<h2 id="system-overview">System Overview</h2>
+<pre class="codehilite"><code>╔══════════════════════════════════════════════════════════════════════╗
+║                        kit — Toolbox                                ║
+╠══════════════════════════════════════════════════════════════════════╣
+║                                                                      ║
+║   ┌─────────────┐   ┌─────────────┐   ┌─────────────────────────┐   ║
+║   │  INTERFACES │   │    TOOLS    │   │      EXTERNAL APIs      │   ║
+║   ├─────────────┤   ├─────────────┤   ├─────────────────────────┤   ║
+║   │             │   │             │   │                         │   ║
+║   │  CLI        │──▶│  Route      │──▶│  Google Maps Directions │   ║
+║   │  (Typer)    │   │  ┌────────┐ │   │  Google Maps Geocoding  │   ║
+║   │             │   │  │ core   │ │   │                         │   ║
+║   ├─────────────┤   │  │ gmaps  │ │   ├─────────────────────────┤   ║
+║   │             │   │  │ links  │ │   │                         │   ║
+║   │  MCP Server │──▶│  │planner │ │   │  Google Calendar API    │   ║
+║   │  (stdio)    │   │  └────────┘ │   │    ↓                    │   ║
+║   │             │   │             │   │  Notion Calendar (sync) │   ║
+║   ├─────────────┤   │  Calendar   │──▶│  Apple Calendar (sync)  │   ║
+║   │             │   │  ┌────────┐ │   │                         │   ║
+║   │  Python API │──▶│  │ core   │ │   ├─────────────────────────┤   ║
+║   │  (import)   │   │  │ gcal   │ │   │                         │   ║
+║   │             │   │  └────────┘ │   │  Deep Links:            │   ║
+║   └─────────────┘   │             │   │  · Google Maps App/Web  │   ║
+║                     │  ┌────────┐ │   │  · DB Navigator         │   ║
+║   ┌─────────────┐   │  │ utils  │ │   │  · Apple Maps           │   ║
+║   │   CONFIG    │   │  │ geo    │ │   │  · BVG Fahrinfo         │   ║
+║   │ ~/.config/  │──▶│  │ format │ │   │                         │   ║
+║   │   kit/      │   │  └────────┘ │   └─────────────────────────┘   ║
+║   └─────────────┘   └─────────────┘                                  ║
+║                                                                      ║
+╠══════════════════════════════════════════════════════════════════════╣
+║  Cache: ~/.cache/kit/   │   Tests: pytest + VCR   │   CI: GitHub    ║
+╚══════════════════════════════════════════════════════════════════════╝
+</code></pre>
+
+<p><strong>Data Flow — Termin mit Reise-Puffer:</strong></p>
+<pre class="codehilite"><code>User/Agent                    kit                         External
+    │                          │                              │
+    │  &quot;Dinner 19:00           │                              │
+    │   Luigi, Oranienstr&quot;     │                              │
+    │─────────────────────────▶│                              │
+    │                          │  Geocode &quot;Oranienstr 42&quot;     │
+    │                          │─────────────────────────────▶│ Google Maps
+    │                          │◀─────────────────────────────│ → 52.50,13.42
+    │                          │                              │
+    │                          │  Directions home → 52.50,13  │
+    │                          │─────────────────────────────▶│ Google Maps
+    │                          │◀─────────────────────────────│ → 22 min transit
+    │                          │                              │
+    │                          │  Create Event 1: Travel      │
+    │                          │  18:33–18:55 + Deep Links    │
+    │                          │─────────────────────────────▶│ Google Calendar
+    │                          │                              │  ↓ auto-sync
+    │                          │  Create Event 2: Dinner      │  Notion Calendar
+    │                          │  19:00–20:00                 │  Apple Calendar
+    │                          │─────────────────────────────▶│ Google Calendar
+    │                          │                              │
+    │  ✓ 2 Events erstellt     │                              │
+    │  Travel: 22 min, U8      │                              │
+    │◀─────────────────────────│                              │
+</code></pre>
+
+<hr />
+<h2 id="table-of-contents">Table of Contents</h2>
+<ol>
+<li><a href="#1-vision">Vision</a></li>
+<li><a href="#2-architektur">Architektur</a></li>
+<li>2.1 <a href="#21-repo-struktur">Repo-Struktur</a></li>
+<li>2.2 <a href="#22-tech-stack">Tech Stack</a></li>
+<li>2.3 <a href="#23-config-system">Config-System</a></li>
+<li><a href="#3-route-tool--detaildesign">Route-Tool — Detaildesign</a></li>
+<li>3.1 <a href="#31-input-formate">Input-Formate</a></li>
+<li>3.2 <a href="#32-cli-interface">CLI Interface</a></li>
+<li>3.3 <a href="#33-output-formate">Output-Formate</a></li>
+<li>3.4 <a href="#34-python-api-fuer-agent-nutzung">Python API</a></li>
+<li>3.5 <a href="#35-deep-links">Deep Links</a></li>
+<li><a href="#4-calendar-tool--detaildesign">Calendar-Tool — Detaildesign</a></li>
+<li>4.1 <a href="#41-architektur-entscheidung">Architektur-Entscheidung</a></li>
+<li>4.2 <a href="#42-cli-interface">CLI Interface</a></li>
+<li>4.3 <a href="#43-route-integration">Route-Integration</a></li>
+<li>4.4 <a href="#44-python-api">Python API</a></li>
+<li><a href="#5-multi-stop-tagesplanung-agent-use-case">Multi-Stop Tagesplanung</a></li>
+<li><a href="#6-setup-flow">Setup-Flow</a></li>
+<li><a href="#7-testing-strategie">Testing-Strategie</a></li>
+<li><a href="#8-cli-features-professional-grade">CLI-Features (Professional Grade)</a></li>
+<li>8.1 <a href="#81-error-handling">Error Handling</a></li>
+<li>8.2 <a href="#82-caching-und-rate-limiting">Caching und Rate Limiting</a></li>
+<li><a href="#9-mcp-server--agent-native-interface">MCP Server — Agent-Native Interface</a></li>
+<li>9.1 <a href="#91-architektur">Architektur</a></li>
+<li>9.2 <a href="#92-mcp-tool-definitionen">MCP Tool-Definitionen</a></li>
+<li>9.3 <a href="#93-claude-code-integration">Claude Code Integration</a></li>
+<li>9.4 <a href="#94-mcp-server-implementierung">MCP Server Implementierung</a></li>
+<li><a href="#10-zukunft-nicht-im-ersten-build">Zukunft</a></li>
+<li><a href="#11-nicht-ziele-explizit-ausgeschlossen">Nicht-Ziele</a></li>
+</ol>
+<hr />
+<h2 id="1-vision">1. Vision</h2>
+<p><code>kit</code> ist eine persoenliche CLI-Toolbox die als Bruecke zwischen Mensch und AI-Agent funktioniert. Jedes Tool hat <strong>drei Interfaces</strong>: ein CLI fuer Paul, eine Python API fuer Scripting, und einen <strong>MCP Server</strong> damit Claude Code die Tools nativ als eigene Werkzeuge aufrufen kann. Das erste Tool ist ein multimodaler Routenplaner.</p>
+<pre class="codehilite"><code class="language-bash">kit route &quot;Zuhause&quot; &quot;Alexanderplatz&quot; --mode transit --depart 18:30
+kit route 52.52,13.40 &quot;Hauptbahnhof&quot; --mode bicycling --json
+</code></pre>
+
+<hr />
+<h2 id="2-architektur">2. Architektur</h2>
+<h3 id="21-repo-struktur">2.1 Repo-Struktur</h3>
+<pre class="codehilite"><code>kit/
+├── README.md                     # Portfolio-ready, professionell
+├── LICENSE                       # MIT
+├── pyproject.toml                # Single package, entry-points: &quot;kit&quot; CLI + &quot;kit-mcp&quot; Server
+├── src/
+│   └── kit/
+│       ├── __init__.py           # Version, Package-Info
+│       ├── cli.py                # Haupt-CLI mit Typer, Subcommand-Routing
+│       ├── config.py             # Config-Management (~/.config/kit/)
+│       ├── mcp_server.py         # MCP Server — exponiert alle Tools als MCP-Tools
+│       ├── route/
+│       │   ├── __init__.py
+│       │   ├── core.py           # RouteRequest, RouteResult Datenklassen
+│       │   ├── google_maps.py    # Google Maps Directions API Client
+│       │   ├── deep_links.py     # URL-Generator fuer Apps (GMaps, DB Nav)
+│       │   ├── planner.py        # plan_day() — Multi-Stop Tagesplanung (nutzt plan_multi_route)
+│       │   ├── commands.py       # CLI Subcommands fuer &quot;kit route&quot;
+│       │   └── mcp_tools.py     # MCP Tool-Definitionen fuer Route
+│       ├── cal/
+│       │   ├── __init__.py
+│       │   ├── core.py           # CalendarEvent Datenklasse
+│       │   ├── google_cal.py     # Google Calendar API Client
+│       │   ├── commands.py       # CLI Subcommands fuer &quot;kit cal&quot;
+│       │   └── mcp_tools.py     # MCP Tool-Definitionen fuer Calendar
+│       └── utils/
+│           ├── __init__.py
+│           ├── geo.py            # Koordinaten-Parsing, Geocoding
+│           └── formatting.py     # Human-readable Output, Tabellen
+├── tests/
+│   ├── conftest.py               # Shared Fixtures, Mock-API-Responses
+│   ├── test_route_core.py
+│   ├── test_route_google_maps.py
+│   ├── test_route_deep_links.py
+│   ├── test_cal_core.py
+│   ├── test_geo.py
+│   ├── test_cli.py               # CLI Integration Tests
+│   └── test_mcp_server.py        # MCP Server Tests
+├── docs/
+│   ├── specs/                    # Design Docs (dieses Dokument)
+│   └── setup-guide.md            # API Key Setup Anleitung
+└── .github/
+    └── workflows/
+        └── ci.yml                # GitHub Actions: lint + test
+</code></pre>
+
+<h3 id="22-tech-stack">2.2 Tech Stack</h3>
+<table>
+<thead>
+<tr>
+<th>Komponente</th>
+<th>Wahl</th>
+<th>Grund</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CLI Framework</td>
+<td><strong>Typer</strong></td>
+<td>Moderner Click-Wrapper, Type Hints, Auto-Help</td>
+</tr>
+<tr>
+<td>Google Maps</td>
+<td><strong>googlemaps</strong></td>
+<td>Offizielle Python-Lib</td>
+</tr>
+<tr>
+<td>Google Calendar</td>
+<td><strong>google-api-python-client</strong></td>
+<td>Offizielles SDK</td>
+</tr>
+<tr>
+<td>HTTP</td>
+<td><strong>googlemaps + google-api-python-client</strong></td>
+<td>Offizielle SDKs handhaben HTTP intern. httpx als optionale Dependency fuer zukuenftige Backends</td>
+</tr>
+<tr>
+<td>Config</td>
+<td><strong>tomllib + tomli-w</strong></td>
+<td>TOML config in ~/.config/kit/</td>
+</tr>
+<tr>
+<td>Testing</td>
+<td><strong>pytest + pytest-vcr</strong></td>
+<td>VCR fuer API-Response-Recording</td>
+</tr>
+<tr>
+<td>Output</td>
+<td><strong>rich</strong></td>
+<td>Schoene Tabellen, Farben, Progress</td>
+</tr>
+<tr>
+<td>Datenklassen</td>
+<td><strong>pydantic</strong></td>
+<td>Validierung, JSON-Serialisierung</td>
+</tr>
+<tr>
+<td>MCP Server</td>
+<td><strong>mcp (Python SDK)</strong></td>
+<td>Model Context Protocol Server SDK</td>
+</tr>
+</tbody>
+</table>
+<h3 id="23-config-system">2.3 Config-System</h3>
+<pre class="codehilite"><code class="language-toml"># ~/.config/kit/config.toml
+
+[general]
+default_mode = &quot;transit&quot;
+home = &quot;Beispielstrasse 42, 10999 Berlin&quot;
+
+[google_maps]
+api_key = &quot;AIza...&quot;
+
+[google_calendar]
+calendar_id = &quot;primary&quot;
+# OAuth credentials in ~/.config/kit/credentials.json
+</code></pre>
+
+<p>API Key kann auch via Environment Variable gesetzt werden: <code>KIT_GOOGLE_MAPS_API_KEY</code>.
+Config-Datei sollte restriktive Permissions haben (chmod 600).</p>
+<p><strong>OAuth Token Storage:</strong>
+- Client Credentials: <code>~/.config/kit/credentials.json</code> (aus Google Cloud Console Download)
+- Access/Refresh Token: <code>~/.config/kit/token.json</code> (automatisch nach OAuth Flow)
+- Token Refresh: automatisch via <code>google-auth</code> Library
+- Bei abgelaufenem Refresh Token: erneuter OAuth Flow via <code>kit setup --reauth</code></p>
+<p><strong>Config Versionierung:</strong></p>
+<pre class="codehilite"><code class="language-toml">[meta]
+version = 1  # fuer zukuenftige Migrationen
+</code></pre>
+
+<p>Erster Start: <code>kit setup</code> fuehrt interaktiv durch API-Key-Eingabe und Home-Adresse.</p>
+<hr />
+<h2 id="3-route-tool-detaildesign">3. Route-Tool — Detaildesign</h2>
+<h3 id="31-input-formate">3.1 Input-Formate</h3>
+<pre class="codehilite"><code class="language-bash"># Adressen (Geocoding via Google Maps)
+kit route &quot;Alexanderplatz, Berlin&quot; &quot;Goerlitzer Park&quot;
+
+# Koordinaten (lat,lng)
+kit route 52.5200,13.4050 52.4891,13.3614
+
+# Gespeicherte Orte (aus Config)
+kit route home &quot;Alexanderplatz&quot;
+
+# Mixed
+kit route home 52.5200,13.4050
+</code></pre>
+
+<h3 id="32-cli-interface">3.2 CLI Interface</h3>
+<pre class="codehilite"><code class="language-bash">kit route &lt;origin&gt; &lt;destination&gt; [OPTIONS]
+
+Optionen:
+  --mode, -m      transit | walking | bicycling | driving  [default: transit]
+  --depart, -d    Abfahrtszeit (HH:MM oder ISO-8601)       [default: jetzt]
+  --arrive, -a    Ankunftszeit (HH:MM oder ISO-8601)
+  --alternatives  Anzahl Alternativen                       [default: 1]
+  --json          JSON-Output (fuer Agent-Nutzung)
+  --link          Deep Link zu Google Maps / DB Navigator ausgeben
+  --open          Deep Link direkt im Browser oeffnen
+  --verbose, -v   Detaillierte Schrittanweisungen
+
+# Multi-Stop
+kit route multi &lt;stop1&gt; &lt;stop2&gt; &lt;stop3&gt; ... [OPTIONS]
+
+# --depart und --arrive sind mutually exclusive (Fehler wenn beide angegeben)
+</code></pre>
+
+<p><strong>Zeitzonen:</strong> Alle HH:MM-Eingaben werden als lokale Systemzeit interpretiert. ISO-8601 mit explizitem Offset wird respektiert. Alle Rueckgabewerte enthalten Timezone-Information.</p>
+<h3 id="33-output-formate">3.3 Output-Formate</h3>
+<p><strong>Human-readable (default):</strong></p>
+<pre class="codehilite"><code>🚇 Alexanderplatz → Goerlitzer Park
+   Transit · 18 min · Abfahrt 18:30 → Ankunft 18:48
+
+   1. U8 Richtung Hermannstr · 3 Stationen · 7 min
+   2. Fuss · 350m · 4 min
+
+   📎 Google Maps: https://maps.google.com/...
+   📎 DB Navigator: https://reiseauskunft.bahn.de/...
+</code></pre>
+
+<p><strong>JSON (fuer Agent):</strong></p>
+<pre class="codehilite"><code class="language-json">{
+  &quot;origin&quot;: &quot;Alexanderplatz, Berlin&quot;,
+  &quot;destination&quot;: &quot;Goerlitzer Park, Berlin&quot;,
+  &quot;mode&quot;: &quot;transit&quot;,
+  &quot;duration_seconds&quot;: 1080,
+  &quot;duration_human&quot;: &quot;18 min&quot;,
+  &quot;departure&quot;: &quot;2026-03-25T18:30:00+01:00&quot;,
+  &quot;arrival&quot;: &quot;2026-03-25T18:48:00+01:00&quot;,
+  &quot;steps&quot;: [
+    {
+      &quot;instruction&quot;: &quot;U8 Richtung Hermannstr&quot;,
+      &quot;mode&quot;: &quot;transit&quot;,
+      &quot;distance_meters&quot;: 2100,
+      &quot;duration_seconds&quot;: 420,
+      &quot;transit_line&quot;: &quot;U8&quot;,
+      &quot;transit_stops&quot;: 3
+    },
+    {
+      &quot;instruction&quot;: &quot;Zu Fuss zum Ziel&quot;,
+      &quot;mode&quot;: &quot;walking&quot;,
+      &quot;distance_meters&quot;: 350,
+      &quot;duration_seconds&quot;: 240,
+      &quot;transit_line&quot;: null,
+      &quot;transit_stops&quot;: null
+    }
+  ],
+  &quot;deep_links&quot;: {
+    &quot;google_maps&quot;: &quot;https://www.google.com/maps/dir/?api=1&amp;origin=...&quot;,
+    &quot;db_navigator&quot;: &quot;https://reiseauskunft.bahn.de/bin/query.exe/dn?...&quot;
+  }
+}
+</code></pre>
+
+<h3 id="34-python-api-fuer-agent-nutzung">3.4 Python API (fuer Agent-Nutzung)</h3>
+<pre class="codehilite"><code class="language-python">from kit.route import plan_route, plan_multi_route, RouteRequest
+
+# Convenience-Form: zwei Strings → intern wird RouteRequest gebaut
+result = plan_route(&quot;Alexanderplatz&quot;, &quot;Goerlitzer Park&quot;)
+print(result.duration_human)  # &quot;18 min&quot;
+print(result.deep_links.google_maps)  # URL
+
+# Explizite Form: RouteRequest-Objekt mit allen Optionen
+request = RouteRequest(
+    origin=&quot;Zuhause&quot;,
+    destination=&quot;52.4891,13.3614&quot;,
+    mode=&quot;transit&quot;,
+    departure=&quot;18:30&quot;,
+)
+result = plan_route(request)
+
+# Signatur: plan_route(origin: str, destination: str, **kwargs) -&gt; RouteResult
+#       OR: plan_route(request: RouteRequest) -&gt; RouteResult
+# Implementiert via @overload Type Hints.
+
+# Multi-Stop (fuer Tagesplanung)
+stops = [&quot;Zuhause&quot;, &quot;Metro Friedrichshain&quot;, &quot;Restaurant Luigi&quot;, &quot;Zuhause&quot;]
+results = plan_multi_route(stops, mode=&quot;transit&quot;, departure=&quot;17:00&quot;)
+for leg in results:
+    print(f&quot;{leg.origin_name} → {leg.destination_name}: {leg.duration_human}&quot;)
+</code></pre>
+
+<h3 id="35-deep-links">3.5 Deep Links</h3>
+<table>
+<thead>
+<tr>
+<th>App</th>
+<th>URL-Schema</th>
+<th>Plattform</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Google Maps (Web)</td>
+<td><code>https://www.google.com/maps/dir/?api=1&amp;origin=...&amp;destination=...&amp;travelmode=transit</code></td>
+<td>Alle</td>
+</tr>
+<tr>
+<td>Google Maps (App)</td>
+<td><code>comgooglemaps://?saddr=...&amp;daddr=...&amp;directionsmode=transit</code></td>
+<td>iOS</td>
+</tr>
+<tr>
+<td>DB Navigator</td>
+<td><code>https://reiseauskunft.bahn.de/bin/query.exe/dn?S=...&amp;Z=...&amp;date=...&amp;time=...</code></td>
+<td>Web+App</td>
+</tr>
+<tr>
+<td>Apple Maps</td>
+<td><code>https://maps.apple.com/?saddr=...&amp;daddr=...&amp;dirflg=r</code></td>
+<td>iOS/macOS</td>
+</tr>
+<tr>
+<td>BVG Fahrinfo</td>
+<td><code>https://fahrinfo.bvg.de/Fahrinfo/bin/query.bin/dn?from=...&amp;to=...</code></td>
+<td>Web</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="4-calendar-tool-detaildesign">4. Calendar-Tool — Detaildesign</h2>
+<h3 id="41-architektur-entscheidung">4.1 Architektur-Entscheidung</h3>
+<p><strong>Google Calendar API = einziger Write-Target.</strong></p>
+<p>Sync-Kette: Google Calendar API → Notion Calendar (near-realtime) → Apple Calendar (15-20 Min Polling)</p>
+<p>Voraussetzung: Apple Calendar und Notion Calendar sind mit demselben Google-Konto verbunden (nicht URL-Subscription, sondern Account-Integration).</p>
+<h3 id="42-cli-interface">4.2 CLI Interface</h3>
+<pre class="codehilite"><code class="language-bash">kit cal add &lt;title&gt; [OPTIONS]
+
+Optionen:
+  --start, -s       Startzeit (HH:MM)                        [ohne: Ganztages-Event]
+  --date            Datum (YYYY-MM-DD oder &quot;morgen&quot;, &quot;freitag&quot;) [default: heute]
+  --duration        Dauer (z.B. &quot;1h&quot;, &quot;30m&quot;)                [default: 1h]
+  --location, -l    Ort
+  --route-from      Route von diesem Ort berechnen und als Travel-Buffer eintragen
+  --route-to        Route zu diesem Ort nach dem Termin
+  --description     Beschreibung
+  --calendar        Kalender-Name                            [default: primary]
+  --json            JSON-Output
+
+kit cal today                   # Heutige Termine anzeigen
+kit cal tomorrow                # Morgen
+kit cal week                    # Diese Woche
+</code></pre>
+
+<p>Relative Datumsangaben: <code>heute</code>, <code>morgen</code>, <code>uebermorgen</code>, Wochentage (<code>montag</code>-<code>sonntag</code>), <code>naechsten montag</code>. Parsing via <code>dateparser</code> mit deutscher Locale.</p>
+<p>Ohne <code>--start</code> wird ein Ganztages-Event erstellt. MCP und CLI verwenden beide <code>start</code> als Feldname fuer Konsistenz.</p>
+<h3 id="43-route-integration">4.3 Route-Integration</h3>
+<pre class="codehilite"><code class="language-bash"># Termin mit automatischem Reise-Puffer
+kit cal add &quot;Dinner bei Luigi&quot; --at 19:00 --location &quot;Luigi, Oranienstr 42&quot; --route-from home
+
+# Erzeugt ZWEI Kalender-Eintraege:
+# 1. &quot;🚇 Anreise: Dinner bei Luigi&quot; 18:30-18:55 (Transit, 20 min + 5 min Puffer)
+#    Beschreibung: Google Maps Link + DB Navigator Link
+#    Farbe: Grau (automatisch, zur Unterscheidung von echten Terminen)
+# 2. &quot;Dinner bei Luigi&quot; 19:00-20:00
+#    Location: Luigi, Oranienstr 42
+#
+# Travel Buffer: 5 Min Puffer standardmaessig (konfigurierbar via --buffer)
+# Wenn Route-Berechnung fehlschlaegt: Event wird trotzdem erstellt, ohne Buffer + Warnung
+</code></pre>
+
+<h3 id="44-python-api">4.4 Python API</h3>
+<pre class="codehilite"><code class="language-python">from kit.cal import add_event, CalendarEvent
+from kit.route import plan_route
+
+# Event mit Route
+event = CalendarEvent(
+    title=&quot;Dinner bei Luigi&quot;,
+    start=&quot;2026-03-25T19:00:00&quot;,
+    duration_minutes=60,
+    location=&quot;Luigi, Oranienstr 42, Berlin&quot;,
+)
+route = plan_route(&quot;home&quot;, event.location, mode=&quot;transit&quot;, arrive_by=&quot;19:00&quot;)
+
+# Erstellt Termin + Travel-Buffer
+add_event(event, travel_buffer=route)
+</code></pre>
+
+<hr />
+<h2 id="5-multi-stop-tagesplanung-agent-use-case">5. Multi-Stop Tagesplanung (Agent Use Case)</h2>
+<p>Das Killer-Feature fuer Agent-Nutzung: Claude kann einen ganzen Tag planen.</p>
+<pre class="codehilite"><code class="language-python">from kit.route import plan_day
+
+plan = plan_day(
+    start_location=&quot;home&quot;,
+    stops=[
+        {&quot;name&quot;: &quot;Metro einkaufen&quot;, &quot;location&quot;: &quot;Metro Friedrichshain&quot;, &quot;duration&quot;: &quot;30m&quot;, &quot;earliest&quot;: &quot;17:00&quot;},
+        {&quot;name&quot;: &quot;Besorgung&quot;, &quot;location&quot;: &quot;Kurfuerstendamm 42&quot;, &quot;duration&quot;: &quot;45m&quot;},
+        {&quot;name&quot;: &quot;Dinner&quot;, &quot;location&quot;: &quot;Luigi, Oranienstr 42&quot;, &quot;duration&quot;: &quot;2h&quot;, &quot;fixed_time&quot;: &quot;19:30&quot;},
+    ],
+    end_location=&quot;home&quot;,
+    mode=&quot;transit&quot;,
+)
+# name = Anzeigename fuer Kalender, location = Adresse/Koordinaten fuer Routing
+# plan_day nutzt intern plan_multi_route fuer die Routing-Legs
+
+# plan.is_feasible → True/False
+# plan.total_travel_time → &quot;1h 12min&quot;
+# plan.schedule → chronologische Liste mit Zeiten
+# plan.warnings → [&quot;Knapp: nur 8 Min zwischen Metro und City West&quot;]
+</code></pre>
+
+<hr />
+<h2 id="6-setup-flow">6. Setup-Flow</h2>
+<pre class="codehilite"><code class="language-bash">$ kit setup
+
+Welcome to kit! Let's get you set up.
+
+1/3 — Google Maps API Key
+   You need a Google Maps API key with Directions API enabled.
+   → Get one at: https://console.cloud.google.com/apis/credentials
+   → Enable: Directions API, Geocoding API
+   → Paste your key: AIza________________
+
+2/3 — Google Calendar
+   We'll open a browser for OAuth authentication.
+   → Press Enter to continue...
+   [Browser oeffnet sich fuer Google OAuth]
+   ✓ Connected to calendar: paul@gmail.com
+
+3/3 — Home Address
+   Your default starting point for routes.
+   → Enter your home address: Beispielstr 42, 10999 Berlin
+   ✓ Verified: Beispielstraße 42, 10999 Berlin, Germany
+
+Setup complete! Try: kit route home &quot;Alexanderplatz&quot;
+</code></pre>
+
+<hr />
+<h2 id="7-testing-strategie">7. Testing-Strategie</h2>
+<h3 id="71-test-pyramide">7.1 Test-Pyramide</h3>
+<table>
+<thead>
+<tr>
+<th>Ebene</th>
+<th>Was</th>
+<th>Wie</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Unit Tests</td>
+<td>Koordinaten-Parsing, Deep-Link-Generation, Output-Formatting</td>
+<td>pytest, keine API-Calls</td>
+</tr>
+<tr>
+<td>Integration Tests</td>
+<td>Google Maps API, Google Calendar API</td>
+<td>pytest-vcr (aufgezeichnete Responses)</td>
+</tr>
+<tr>
+<td>CLI Tests</td>
+<td>End-to-End CLI-Aufrufe</td>
+<td>typer.testing.CliRunner</td>
+</tr>
+<tr>
+<td>Smoke Tests</td>
+<td>Echte API-Calls (manuell, nicht in CI)</td>
+<td>pytest -m smoke</td>
+</tr>
+</tbody>
+</table>
+<h3 id="72-vcr-strategie-api-mocking">7.2 VCR-Strategie (API-Mocking)</h3>
+<p>Erste echte API-Calls werden aufgezeichnet als YAML-Cassettes. Danach laufen Tests offline gegen aufgezeichnete Responses. Neue Routen/Szenarien: <code>pytest --vcr-record=new_episodes</code>.</p>
+<h3 id="73-coverage-ziel">7.3 Coverage-Ziel</h3>
+<p>≥ 90% fuer core.py, geo.py, deep_links.py, formatting.py. CLI-Tests decken Happy Path + Error Cases ab.</p>
+<hr />
+<h2 id="8-cli-features-professional-grade">8. CLI-Features (Professional Grade)</h2>
+<ul>
+<li><code>--help</code> auf jedem Level (kit --help, kit route --help)</li>
+<li><code>--version</code> zeigt Version</li>
+<li><code>--json</code> fuer maschinenlesbaren Output</li>
+<li><code>--verbose / -v</code> fuer Debug-Infos</li>
+<li><code>--no-color</code> fuer Pipe-Kompatibilitaet</li>
+<li>Fehler als stderr, Ergebnisse als stdout</li>
+<li>Exit Codes: 0 = OK, 1 = User Error, 2 = API Error</li>
+<li>Shell-Completion (Typer generiert bash/zsh/fish completions)</li>
+<li><code>kit config show</code> zeigt aktuelle Config</li>
+<li><code>kit config set &lt;key&gt; &lt;value&gt;</code> aendert Config</li>
+</ul>
+<h3 id="81-error-handling">8.1 Error Handling</h3>
+<p><strong>Exception-Hierarchie:</strong></p>
+<pre class="codehilite"><code class="language-python">class KitError(Exception): pass
+class ConfigError(KitError): pass       # Fehlende Config, ungueltige Keys
+class RouteNotFoundError(KitError): pass # Keine Route gefunden
+class GeocodingError(KitError): pass     # Adresse nicht aufloesbar
+class APIError(KitError): pass           # Google API Fehler (Rate Limit, Auth, etc.)
+class CalendarError(KitError): pass      # Calendar API Fehler
+</code></pre>
+
+<p><strong>Mapping auf Interfaces:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Exception</th>
+<th>CLI Exit Code</th>
+<th>MCP Response</th>
+<th>Python API</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ConfigError</td>
+<td>1 (User Error)</td>
+<td><code>isError: true</code> + Hinweis auf <code>kit setup</code></td>
+<td>raise ConfigError</td>
+</tr>
+<tr>
+<td>RouteNotFoundError</td>
+<td>1</td>
+<td><code>isError: true</code> + Alternativen vorschlagen</td>
+<td>raise RouteNotFoundError</td>
+</tr>
+<tr>
+<td>GeocodingError</td>
+<td>1</td>
+<td><code>isError: true</code> + "Adresse nicht gefunden"</td>
+<td>raise GeocodingError</td>
+</tr>
+<tr>
+<td>APIError (429)</td>
+<td>2 (API Error)</td>
+<td><code>isError: true</code> + Retry-After Header</td>
+<td>raise APIError, automatischer Backoff</td>
+</tr>
+<tr>
+<td>APIError (auth)</td>
+<td>2</td>
+<td><code>isError: true</code> + "kit setup --reauth"</td>
+<td>raise APIError</td>
+</tr>
+<tr>
+<td>Netzwerk-Timeout</td>
+<td>2</td>
+<td><code>isError: true</code> + "Netzwerk nicht erreichbar"</td>
+<td>raise APIError</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Verhalten bei Teilfehlern:</strong>
+- <code>kit_cal_add</code> mit <code>route_from</code>: Wenn Route-Berechnung fehlschlaegt, wird der Kalender-Event trotzdem erstellt (ohne Travel-Buffer) + Warnung
+- <code>kit_plan_day</code>: Wenn eine einzelne Leg fehlschlaegt, wird der Rest trotzdem berechnet + Warnung fuer die fehlende Leg</p>
+<h3 id="82-caching-und-rate-limiting">8.2 Caching und Rate Limiting</h3>
+<ul>
+<li><strong>Response Cache</strong>: Gleiche Route (origin + destination + mode) wird 15 Min gecacht (lokaler Disk-Cache in <code>~/.cache/kit/</code>)</li>
+<li><strong>Rate Limiting</strong>: Automatischer exponentieller Backoff bei 429-Responses (1s, 2s, 4s, max 3 Retries)</li>
+<li><strong>Usage Tracking</strong>: <code>kit config show-usage</code> zeigt API-Calls diesen Monat (Google Maps gibt 200$/Monat Free Credit ≈ 40.000 Directions-Requests)</li>
+</ul>
+<hr />
+<h2 id="9-mcp-server-agent-native-interface">9. MCP Server — Agent-Native Interface</h2>
+<h3 id="91-architektur">9.1 Architektur</h3>
+<p>Der MCP Server ist das primaere Agent-Interface. Er exponiert alle kit-Tools als MCP-Tools die Claude Code direkt aufrufen kann — kein Bash-Umweg, strukturierter Input/Output, native Tool-Beschreibungen.</p>
+<pre class="codehilite"><code>┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
+│  Claude Code    │────▶│  kit MCP Server  │────▶│  Google Maps    │
+│  (Agent)        │◀────│  (stdio)         │────▶│  Google Calendar│
+└─────────────────┘     └──────────────────┘     └─────────────────┘
+                              │
+                         src/kit/
+                        ├── route/core.py    (shared logic)
+                        ├── cal/core.py      (shared logic)
+                              │
+┌─────────────────┐     ┌──────────────────┐
+│  Terminal       │────▶│  kit CLI         │──── gleiche Core-Logik
+│  (Mensch)       │◀────│  (Typer)         │
+└─────────────────┘     └──────────────────┘
+</code></pre>
+
+<p>CLI, Python API und MCP Server teilen sich dieselbe Core-Logik. Kein Code wird dupliziert.</p>
+<h3 id="92-mcp-tool-definitionen">9.2 MCP Tool-Definitionen</h3>
+<p><strong>kit_route</strong> — Berechnet Routen zwischen zwei Orten:</p>
+<pre class="codehilite"><code class="language-json">{
+  &quot;name&quot;: &quot;kit_route&quot;,
+  &quot;description&quot;: &quot;Calculate a route between two locations using Google Maps. Returns duration, steps, and deep links to navigation apps. Supports addresses, coordinates (lat,lng), and saved locations like 'home'.&quot;,
+  &quot;inputSchema&quot;: {
+    &quot;type&quot;: &quot;object&quot;,
+    &quot;properties&quot;: {
+      &quot;origin&quot;: {
+        &quot;type&quot;: &quot;string&quot;,
+        &quot;description&quot;: &quot;Start location: address, 'lat,lng' coordinates, or saved location name&quot;
+      },
+      &quot;destination&quot;: {
+        &quot;type&quot;: &quot;string&quot;,
+        &quot;description&quot;: &quot;End location: address, 'lat,lng' coordinates, or saved location name&quot;
+      },
+      &quot;mode&quot;: {
+        &quot;type&quot;: &quot;string&quot;,
+        &quot;enum&quot;: [&quot;transit&quot;, &quot;walking&quot;, &quot;bicycling&quot;, &quot;driving&quot;],
+        &quot;default&quot;: &quot;transit&quot;
+      },
+      &quot;departure_time&quot;: {
+        &quot;type&quot;: &quot;string&quot;,
+        &quot;description&quot;: &quot;Departure time as HH:MM or ISO-8601. Default: now&quot;
+      },
+      &quot;arrival_time&quot;: {
+        &quot;type&quot;: &quot;string&quot;,
+        &quot;description&quot;: &quot;Desired arrival time as HH:MM or ISO-8601&quot;
+      }
+    },
+    &quot;required&quot;: [&quot;origin&quot;, &quot;destination&quot;]
+  }
+}
+</code></pre>
+
+<p><strong>kit_route_multi</strong> — Berechnet Multi-Stop-Routen:</p>
+<pre class="codehilite"><code class="language-json">{
+  &quot;name&quot;: &quot;kit_route_multi&quot;,
+  &quot;description&quot;: &quot;Calculate routes between multiple stops in sequence. Returns total travel time and per-leg details.&quot;,
+  &quot;inputSchema&quot;: {
+    &quot;type&quot;: &quot;object&quot;,
+    &quot;properties&quot;: {
+      &quot;stops&quot;: {
+        &quot;type&quot;: &quot;array&quot;,
+        &quot;items&quot;: { &quot;type&quot;: &quot;string&quot; },
+        &quot;description&quot;: &quot;Ordered list of locations to visit&quot;
+      },
+      &quot;mode&quot;: { &quot;type&quot;: &quot;string&quot;, &quot;default&quot;: &quot;transit&quot; },
+      &quot;departure_time&quot;: { &quot;type&quot;: &quot;string&quot; }
+    },
+    &quot;required&quot;: [&quot;stops&quot;]
+  }
+}
+</code></pre>
+
+<p><strong>kit_cal_add</strong> — Erstellt Kalender-Event mit optionalem Reise-Puffer:</p>
+<pre class="codehilite"><code class="language-json">{
+  &quot;name&quot;: &quot;kit_cal_add&quot;,
+  &quot;description&quot;: &quot;Create a Google Calendar event. Syncs automatically to Notion Calendar and Apple Calendar. Can calculate and add a travel buffer event with navigation deep links.&quot;,
+  &quot;inputSchema&quot;: {
+    &quot;type&quot;: &quot;object&quot;,
+    &quot;properties&quot;: {
+      &quot;title&quot;: { &quot;type&quot;: &quot;string&quot; },
+      &quot;start&quot;: { &quot;type&quot;: &quot;string&quot;, &quot;description&quot;: &quot;Start time as HH:MM or ISO-8601&quot; },
+      &quot;date&quot;: { &quot;type&quot;: &quot;string&quot;, &quot;description&quot;: &quot;Date as YYYY-MM-DD or relative ('morgen', 'freitag'). Default: today&quot; },
+      &quot;duration_minutes&quot;: { &quot;type&quot;: &quot;integer&quot;, &quot;default&quot;: 60 },
+      &quot;location&quot;: { &quot;type&quot;: &quot;string&quot; },
+      &quot;description&quot;: { &quot;type&quot;: &quot;string&quot; },
+      &quot;route_from&quot;: { &quot;type&quot;: &quot;string&quot;, &quot;description&quot;: &quot;Calculate transit route FROM this location and add travel buffer event&quot; },
+      &quot;route_to&quot;: { &quot;type&quot;: &quot;string&quot;, &quot;description&quot;: &quot;Calculate transit route TO this location after the event&quot; },
+      &quot;calendar_id&quot;: { &quot;type&quot;: &quot;string&quot;, &quot;default&quot;: &quot;primary&quot; }
+    },
+    &quot;required&quot;: [&quot;title&quot;, &quot;start&quot;]
+  }
+}
+</code></pre>
+
+<p><strong>kit_cal_list</strong> — Listet Kalender-Events:</p>
+<pre class="codehilite"><code class="language-json">{
+  &quot;name&quot;: &quot;kit_cal_list&quot;,
+  &quot;description&quot;: &quot;List calendar events for a given time range.&quot;,
+  &quot;inputSchema&quot;: {
+    &quot;type&quot;: &quot;object&quot;,
+    &quot;properties&quot;: {
+      &quot;range&quot;: {
+        &quot;type&quot;: &quot;string&quot;,
+        &quot;enum&quot;: [&quot;today&quot;, &quot;tomorrow&quot;, &quot;week&quot;, &quot;custom&quot;],
+        &quot;default&quot;: &quot;today&quot;
+      },
+      &quot;start_date&quot;: { &quot;type&quot;: &quot;string&quot; },
+      &quot;end_date&quot;: { &quot;type&quot;: &quot;string&quot; }
+    }
+  }
+}
+</code></pre>
+
+<p><strong>kit_plan_day</strong> — Plant einen ganzen Tag mit Feasibility-Check:</p>
+<pre class="codehilite"><code class="language-json">{
+  &quot;name&quot;: &quot;kit_plan_day&quot;,
+  &quot;description&quot;: &quot;Plan a full day with multiple stops. Calculates routes between all stops, checks if the schedule is feasible, and returns warnings for tight connections. Can create all calendar events at once.&quot;,
+  &quot;inputSchema&quot;: {
+    &quot;type&quot;: &quot;object&quot;,
+    &quot;properties&quot;: {
+      &quot;start_location&quot;: { &quot;type&quot;: &quot;string&quot;, &quot;default&quot;: &quot;home&quot; },
+      &quot;end_location&quot;: { &quot;type&quot;: &quot;string&quot;, &quot;default&quot;: &quot;home&quot; },
+      &quot;stops&quot;: {
+        &quot;type&quot;: &quot;array&quot;,
+        &quot;items&quot;: {
+          &quot;type&quot;: &quot;object&quot;,
+          &quot;properties&quot;: {
+            &quot;name&quot;: { &quot;type&quot;: &quot;string&quot; },
+            &quot;location&quot;: { &quot;type&quot;: &quot;string&quot; },
+            &quot;duration&quot;: { &quot;type&quot;: &quot;string&quot;, &quot;description&quot;: &quot;e.g. '30m', '1h', '2h'&quot; },
+            &quot;fixed_time&quot;: { &quot;type&quot;: &quot;string&quot;, &quot;description&quot;: &quot;Fixed start time if not flexible&quot; },
+            &quot;earliest&quot;: { &quot;type&quot;: &quot;string&quot;, &quot;description&quot;: &quot;Earliest possible start&quot; }
+          },
+          &quot;required&quot;: [&quot;name&quot;]
+        }
+      },
+      &quot;mode&quot;: { &quot;type&quot;: &quot;string&quot;, &quot;default&quot;: &quot;transit&quot; },
+      &quot;create_events&quot;: { &quot;type&quot;: &quot;boolean&quot;, &quot;default&quot;: false, &quot;description&quot;: &quot;If true, create all calendar events including travel buffers&quot; }
+    },
+    &quot;required&quot;: [&quot;stops&quot;]
+  }
+}
+</code></pre>
+
+<h3 id="93-claude-code-integration">9.3 Claude Code Integration</h3>
+<p>Registration in <code>~/.claude/settings.json</code>:</p>
+<pre class="codehilite"><code class="language-json">{
+  &quot;mcpServers&quot;: {
+    &quot;kit&quot;: {
+      &quot;command&quot;: &quot;kit-mcp&quot;,
+      &quot;args&quot;: [],
+      &quot;description&quot;: &quot;Personal toolbox: routing, calendar, day planning&quot;
+    }
+  }
+}
+</code></pre>
+
+<p>Nach Installation sieht Claude Code automatisch alle kit-Tools und kann sie direkt aufrufen:</p>
+<pre class="codehilite"><code>Claude: &quot;Du hast heute um 19:30 Dinner bei Luigi. Lass mich die Route berechnen.&quot;
+→ ruft kit_route(origin=&quot;home&quot;, destination=&quot;Luigi, Oranienstr 42&quot;, mode=&quot;transit&quot;, arrival_time=&quot;19:30&quot;) auf
+→ &quot;Transit, 22 Min. Du musst um 19:08 los. Soll ich einen Reise-Puffer im Kalender eintragen?&quot;
+→ ruft kit_cal_add(title=&quot;Dinner bei Luigi&quot;, start=&quot;19:30&quot;, location=&quot;Luigi, Oranienstr 42&quot;, route_from=&quot;home&quot;) auf
+</code></pre>
+
+<h3 id="94-mcp-server-implementierung">9.4 MCP Server Implementierung</h3>
+<pre class="codehilite"><code class="language-python"># src/kit/mcp_server.py
+import asyncio
+from mcp.server import Server
+from mcp.server.stdio import stdio_server
+from kit.route.mcp_tools import register_route_tools
+from kit.cal.mcp_tools import register_cal_tools
+from kit.config import load_config
+
+server = Server(&quot;kit&quot;)
+
+async def main():
+    config = load_config()
+    register_route_tools(server, config)
+    register_cal_tools(server, config)
+
+    async with stdio_server() as (read, write):
+        await server.run(read, write, server.create_initialization_options())
+
+def run():
+    &quot;&quot;&quot;Entry-point fuer pyproject.toml — startet den async Server.&quot;&quot;&quot;
+    asyncio.run(main())
+</code></pre>
+
+<p>Entry-Point in <code>pyproject.toml</code>:</p>
+<pre class="codehilite"><code class="language-toml">[project.scripts]
+kit = &quot;kit.cli:app&quot;
+kit-mcp = &quot;kit.mcp_server:run&quot;
+</code></pre>
+
+<hr />
+<h2 id="10-zukunft-nicht-im-ersten-build">10. Zukunft (nicht im ersten Build)</h2>
+<p>Diese Features sind notiert fuer spaetere Iterationen:</p>
+<ul>
+<li><strong>Alternative Routing-Backends</strong>: MOTIS (Open Source), HaFAS/DB-API, OSRM</li>
+<li><strong>Notion-Datenbank-Sync</strong>: Tasks mit Deadlines als Kalender-Events</li>
+<li><strong>Fahrrad-Routing</strong>: Openrouteservice fuer Berlin-optimierte Radrouten</li>
+<li><strong>Wetter-Integration</strong>: Warnung bei Regen wenn Fahrrad/Fuss geplant</li>
+<li><strong>Kosten-Tracking</strong>: Google Maps API Usage Monitor</li>
+<li><strong>Weitere Tools unter kit</strong>: <code>kit finance</code>, <code>kit scrape</code>, <code>kit notify</code></li>
+</ul>
+<hr />
+<h2 id="11-nicht-ziele-explizit-ausgeschlossen">11. Nicht-Ziele (explizit ausgeschlossen)</h2>
+<ul>
+<li>Kein eigener Routing-Server (wir nutzen Google Maps API)</li>
+<li>Keine UI / Web-App (rein CLI + Python API)</li>
+<li>Kein Real-Time Tracking (nur Planung)</li>
+<li>Keine Kalender-Sync-Engine (Google Calendar ist die Source of Truth)</li>
+<li>Keine Multi-User-Features</li>
+</ul></body>
+</html>
