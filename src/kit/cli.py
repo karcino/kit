@@ -5,6 +5,7 @@ from __future__ import annotations
 import typer
 
 from kit import __version__
+from kit.cal.commands import cal_app
 from kit.route.commands import route_app
 from kit.setup_cmd import setup
 
@@ -32,6 +33,7 @@ def main(
 
 
 app.add_typer(route_app, name="route")
+app.add_typer(cal_app, name="cal")
 app.command()(setup)
 
 
