@@ -42,6 +42,11 @@ def load_config(config_dir: Path | None = None) -> KitConfig:
         else:
             flat.update(data)
             break
+    # Map TOML keys to KitConfig field names
+    _ALIASES = {"api_key": "google_maps_api_key", "version": "meta_version"}
+    for old_key, new_key in _ALIASES.items():
+        if old_key in flat and new_key not in flat:
+            flat[new_key] = flat.pop(old_key)
     return KitConfig(**flat)
 
 
