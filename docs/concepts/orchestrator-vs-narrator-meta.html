@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>How this was made — Kit Narrator v0</title>
+<style>
+  :root {
+    --bg: #f4f4f2;
+    --fg: #111;
+    --muted: #555;
+    --rule: #111;
+    --dashed: #bbb;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--mono);
+    font-size: 14px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    padding: 40px 48px 64px;
+    max-width: calc(78ch + 96px);
+    margin: 0 auto;
+  }
+  a {
+    color: var(--fg);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  a:hover { background: var(--fg); color: var(--bg); }
+  a.ext::after { content: " ↗"; color: var(--muted); }
+  a.in::after { content: " →"; color: var(--muted); }
+  header.top {
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 14px;
+    margin-bottom: 28px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  header.top .crumbs {
+    font-size: 12px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  header.top .crumbs a { color: var(--muted); }
+  header.top .links {
+    font-size: 13px;
+    display: flex;
+    gap: 20px;
+  }
+  h1 {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin: 0 0 8px 0;
+    line-height: 1.25;
+  }
+  .subtitle {
+    color: var(--muted);
+    font-size: 13px;
+    margin-bottom: 28px;
+    border-left: 2px solid var(--fg);
+    padding: 6px 0 6px 12px;
+  }
+  h2 {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    margin: 40px 0 12px;
+    padding-top: 24px;
+    border-top: 1px solid var(--rule);
+  }
+  h2:first-of-type { border-top: none; padding-top: 0; margin-top: 28px; }
+  h3 {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: none;
+    margin: 20px 0 8px;
+  }
+  p, ul, ol { margin: 8px 0 14px; }
+  ul, ol { padding-left: 22px; }
+  li { margin: 4px 0; }
+  code {
+    background: #e8e7e4;
+    padding: 1px 5px;
+    font-size: 13px;
+    border-radius: 0;
+  }
+  blockquote {
+    margin: 16px 0;
+    padding: 10px 16px;
+    border-left: 2px solid var(--fg);
+    background: #ececea;
+    color: var(--fg);
+    font-size: 13px;
+  }
+  blockquote p { margin: 4px 0; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 20px;
+    font-size: 13px;
+  }
+  th, td {
+    text-align: left;
+    padding: 8px 12px 8px 0;
+    border-bottom: 1px dashed var(--dashed);
+    vertical-align: top;
+  }
+  th {
+    border-bottom: 1px solid var(--rule);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    text-transform: uppercase;
+    font-size: 11px;
+  }
+  nav.toc {
+    border: 1px solid var(--rule);
+    padding: 14px 18px;
+    margin: 0 0 32px;
+    font-size: 13px;
+  }
+  nav.toc .label {
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 11px;
+    margin-bottom: 8px;
+  }
+  nav.toc ol {
+    margin: 0;
+    padding-left: 20px;
+    columns: 2;
+    column-gap: 28px;
+  }
+  nav.toc li { break-inside: avoid; }
+  hr {
+    border: none;
+    border-top: 1px solid var(--rule);
+    margin: 36px 0;
+  }
+  footer.bottom {
+    margin-top: 48px;
+    padding-top: 14px;
+    border-top: 1px solid var(--rule);
+    font-size: 12px;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="crumbs">
+    <a href="orchestrator-vs-narrator.html">Orchestrator vs Narrator</a> · How this was made
+  </div>
+  <div class="links">
+    <a class="ext" href="orchestrator-vs-narrator-meta.md">view markdown source</a>
+    <a class="in" href="_design/kit-spec-stil.md">theme: Kit-Spec-Stil</a>
+  </div>
+</header>
+
+<h1>How this was made</h1>
+<div class="subtitle">
+  Provenance report for <code>orchestrator-vs-narrator.html</code>. The first concrete Narrator output documents the conditions of its own creation.
+</div>
+
+<p>This artifact is the first concrete <strong>Narrator</strong> output. The thing being described — a Narrator agent producing self-describing architecture docs — produced itself. This report is the transparency half of that bootstrap: it names the agent, the harness, the tools actually used, the tools that were available but not used, the data sources consulted, and the reasoning path.</p>
+<p>Nothing here is inferred from training priors. Every claim grounds in a file or a system message that was visible to the agent at generation time.</p>
+
+<nav class="toc" aria-label="Table of contents">
+  <div class="label">Contents</div>
+  <ol>
+    <li><a href="#model">Model</a></li>
+    <li><a href="#harness">Harness</a></li>
+    <li><a href="#output-style">Output style</a></li>
+    <li><a href="#skills-invoked">Skills invoked</a></li>
+    <li><a href="#tools-used">Tools used</a></li>
+    <li><a href="#mcp-available-not-used">MCP available but not used</a></li>
+    <li><a href="#data-sources">Data sources</a></li>
+    <li><a href="#system-prompt">System-prompt composition</a></li>
+    <li><a href="#reasoning">Reasoning flow</a></li>
+    <li><a href="#honest-limits">Honest limits</a></li>
+  </ol>
+</nav>
+
+<h2 id="model">Model</h2>
+<table>
+  <thead><tr><th>Field</th><th>Value</th></tr></thead>
+  <tbody>
+    <tr><td>Model ID</td><td><code>claude-opus-4-7[1m]</code></td></tr>
+    <tr><td>Family</td><td>Claude Opus 4.7</td></tr>
+    <tr><td>Context window</td><td>1 000 000 tokens</td></tr>
+    <tr><td>Knowledge cutoff</td><td>January 2026</td></tr>
+    <tr><td>Source</td><td>Claude Code system prompt, <code>Environment</code> block</td></tr>
+  </tbody>
+</table>
+
+<h2 id="harness">Harness</h2>
+<ul>
+  <li><strong>Harness.</strong> Claude Code CLI on macOS (Darwin 25.4.0, zsh).</li>
+  <li><strong>Working directory.</strong> A git worktree under <code>/Users/p.fiedler/Desktop/Code_Projects/kit/.claude/worktrees/frosty-rubin-bcfd7d</code>, branch <code>claude/frosty-rubin-bcfd7d</code>, forked from <code>main</code> at commit <code>233f154</code>.</li>
+  <li><strong>Plan mode</strong> was active during the preceding <em>design</em> session and produced the plan file at <code>~/.claude/plans/january-6-2026-how-adaptive-flame.md</code>, which drove this execution session.</li>
+</ul>
+
+<h2 id="output-style">Output style</h2>
+<p><code>learning</code> mode — interactive + explanatory. ★ Insight blocks surface in the conversation but stay out of committed files.</p>
+
+<h2 id="skills-invoked">Skills invoked</h2>
+<table>
+  <thead><tr><th>Skill</th><th>When</th></tr></thead>
+  <tbody>
+    <tr><td><code>superpowers:using-superpowers</code></td><td>auto-loaded at session start</td></tr>
+    <tr><td><code>superpowers:brainstorming</code></td><td>during the design session captured in the plan file</td></tr>
+  </tbody>
+</table>
+<p>Not re-invoked during execution — execution is not creative work.</p>
+
+<h2 id="tools-used">Tools used</h2>
+<h3>Execution session</h3>
+<ol>
+  <li><code>Skill</code> — load <code>superpowers:using-superpowers</code>.</li>
+  <li><code>ToolSearch</code> — load <code>TodoWrite</code> schema (deferred tool).</li>
+  <li><code>Read</code> — plan file <code>~/.claude/plans/january-6-2026-how-adaptive-flame.md</code>.</li>
+  <li><code>TodoWrite</code> — six-step execution checklist.</li>
+  <li><code>Read</code> — <code>README.md</code>.</li>
+  <li><code>Bash</code> — <code>ls docs/</code> to confirm <code>plans/</code>, <code>specs/</code> siblings.</li>
+  <li><code>Glob</code> — enumerate <code>src/kit/**/*.py</code>.</li>
+  <li><code>Bash</code> — <code>mkdir -p docs/concepts/</code> + worktree sanity check.</li>
+  <li><code>Write</code> — <code>orchestrator-vs-narrator.html</code> (initial cut).</li>
+  <li><code>Write</code> — <code>orchestrator-vs-narrator-meta.md</code> (initial cut).</li>
+  <li><code>Bash</code> — <code>open</code> the HTML in Chrome for visual verification.</li>
+  <li><code>Bash</code> — <code>osascript</code> + <code>say</code> for notification + TTS.</li>
+  <li><code>ToolSearch</code> — load Notion MCP schemas after the harness exposed them.</li>
+  <li><code>Write</code> — <code>_design/kit-spec-stil.md</code> (design library).</li>
+  <li><code>Write</code> — polished meta markdown, this rendered HTML, and an updated main HTML with prose + theme link.</li>
+  <li><code>mcp__notion-search</code> + <code>mcp__notion-create-pages</code> — Work Log row.</li>
+</ol>
+<h3>Design session</h3>
+<p>Preceded execution and produced the plan file: <code>Read</code>, <code>Glob</code>, <code>ToolSearch</code> (for <code>TodoWrite</code>, <code>AskUserQuestion</code>, <code>ExitPlanMode</code>), <code>TodoWrite</code>, <code>AskUserQuestion</code>, <code>ExitPlanMode</code>, final <code>Write</code> of the plan.</p>
+
+<h2 id="mcp-available-not-used">MCP available but not used</h2>
+<p>The harness exposed a wide deferred-tool surface. None of the following were loaded or called during design, and most were not called during execution either — they sat idle. Listed in full for honesty:</p>
+<ul>
+  <li><code>computer-use</code> — desktop control (screenshot / click / type).</li>
+  <li><code>Claude-in-Chrome</code> / <code>Control_Chrome</code> — browser DOM control.</li>
+  <li><code>Claude_Preview</code> — headless preview (the in-chat preview panel is a harness integration, not an MCP call).</li>
+  <li><code>Figma</code> suite (<code>use_figma</code>, <code>get_design_context</code>, …) — design system I/O.</li>
+  <li><code>Zotero</code> — literature management.</li>
+  <li><code>PDF Tools</code> — merge / split / fill.</li>
+  <li><code>iMessage</code> — read + send.</li>
+  <li><code>ccd_directory</code> — directory approvals.</li>
+  <li><code>plugin:context7:context7</code> — library documentation lookup.</li>
+  <li><code>mcp-registry</code> — connector discovery.</li>
+  <li><code>scheduled-tasks</code> — cron-style agent scheduling.</li>
+  <li>Vercel bundle, Anthropic skill bundle, PR review toolkit, agent SDK verifiers.</li>
+</ul>
+<p>The <strong>Notion MCP</strong> (<code>notion-search</code>, <code>notion-create-pages</code>, …) was <strong>not available</strong> during the initial execution turn. The harness exposed it in a later turn, at which point the Work Log row was created.</p>
+
+<h2 id="data-sources">Data sources</h2>
+<ul>
+  <li><code>~/Desktop/CLAUDE.md</code> — workspace conventions (completion-report pattern, notification + TTS discipline, Kit-Spec-Stil).</li>
+  <li><code>CLAUDE.md</code> at the worktree root — Kit architecture, testing conventions, MCP entry points.</li>
+  <li><code>README.md</code> — public surface, feature list, roadmap.</li>
+  <li><code>git status</code> + <code>git worktree list</code> — branch isolation confirmation.</li>
+  <li><code>Glob src/kit/**/*.py</code> — real module tree (<code>cal</code>, <code>route</code>, <code>utils</code>, <code>mcp_server</code>, <code>cli</code>, <code>config</code>, <code>errors</code>, <code>setup_cmd</code>).</li>
+  <li>Memory index at <code>~/.claude/projects/-Users-p-fiedler-Desktop/memory/</code> — completion-workflow rules.</li>
+  <li>The plan file — the primary driver; execution is a faithful read of it.</li>
+</ul>
+<p>No external retrieval. No web fetch. No library doc lookup. The artifact was generated entirely from the agent's in-context view of the repo.</p>
+
+<h2 id="system-prompt">System-prompt composition</h2>
+<ol>
+  <li>Claude Code base prompt — identity, tool discipline, safety protocols, git rules.</li>
+  <li>Environment injection — working directory, branch, git status snapshot, timestamp (2026-04-18).</li>
+  <li>Learning output-style preamble — ★ Insight convention, user-contribution invitation pattern.</li>
+  <li><code>superpowers:using-superpowers</code> skill preamble — skill-first discipline.</li>
+  <li>MCP server instructions (<code>computer-use</code>, <code>context7</code>).</li>
+  <li>Deferred-tool notice — schemas on demand via <code>ToolSearch</code>.</li>
+  <li>Project <code>CLAUDE.md</code> blocks — workspace (<code>~/Desktop</code>) and project (Kit worktree) conventions.</li>
+</ol>
+
+<h2 id="reasoning">Reasoning flow</h2>
+<h3>Design session (preceded this)</h3>
+<ol>
+  <li>Open frame: Kit's next direction.</li>
+  <li>Decomposed the ambition into three sequential sub-projects — agent-first redesign, natural-language orchestrator, hosted service.</li>
+  <li><strong>Service shape = C.</strong> Universal front-door <code>/ask</code> endpoint, one engine, four clients (CLI, Python, MCP, HTTP).</li>
+  <li><strong>Engine = fast-LLM one-shot.</strong> Add rules and loop tiers only on evidence. Chosen because the global intention prizes speed.</li>
+  <li><strong>Global intention = G2.</strong> Portfolio / demo / Konstellation pitch. Rewards range and craft over reliability or personal fit.</li>
+  <li><strong>Pivot = Narrator first.</strong> A <em>design-time</em> agent whose first output is G2 material on day one.</li>
+  <li>The deliverable Paul asked for (this HTML + this report) is itself the first Narrator output — a bootstrap move.</li>
+</ol>
+<h3>Execution session (this one)</h3>
+<ol>
+  <li>Read plan, classified as mechanical execution (no re-brainstorm needed).</li>
+  <li>Confirmed <code>docs/</code> layout matches plan assumption.</li>
+  <li>Wrote HTML first (the visible artifact), then this meta (the transparency artifact), then visually verified.</li>
+  <li>Followed up with design library doc + prose section + rendered meta HTML after Paul asked for them in-flight.</li>
+</ol>
+
+<h2 id="honest-limits">Honest limits</h2>
+<p>What this report <strong>cannot</strong> verify:</p>
+<table>
+  <thead><tr><th>Claim</th><th>Why not</th></tr></thead>
+  <tbody>
+    <tr><td>Token counts</td><td>The agent does not see its own token budget or per-turn usage.</td></tr>
+    <tr><td>Wall-clock latency</td><td>No end-to-end timer; "fast" and "minutes" in the main HTML are targets, not measurements.</td></tr>
+    <tr><td>API call counts</td><td>The agent does not observe provider-side request counts.</td></tr>
+    <tr><td>Completeness of the MCP non-use list</td><td>Niche deferred tools may exist that weren't noticed. Close-enough fidelity, not exhaustive.</td></tr>
+    <tr><td>Transcript fidelity of the design session</td><td>The plan file is a summary. Micro-decisions elided there are inherited as elided here.</td></tr>
+  </tbody>
+</table>
+
+<footer class="bottom">
+  <span>Generated 2026-04-18 · Kit Narrator v0 · <code>claude-opus-4-7[1m]</code></span>
+  <span><a href="_design/kit-spec-stil.md">theme: Kit-Spec-Stil</a> · <a href="orchestrator-vs-narrator-meta.md">source .md</a></span>
+</footer>
+
+</body>
+</html>
