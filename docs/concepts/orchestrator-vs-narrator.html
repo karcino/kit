@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Kit — Orchestrator vs Narrator</title>
+<style>
+  :root {
+    --bg: #f4f4f2;
+    --fg: #111;
+    --muted: #555;
+    --rule: #111;
+    --hover: #ebeae7;
+    --flash: #ffe680;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--mono);
+    font-size: 14px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    min-height: 100vh;
+    padding: 32px 40px;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 12px;
+    margin-bottom: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 24px;
+  }
+  header .title {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  header .sub {
+    font-size: 13px;
+    color: var(--muted);
+    margin-left: 12px;
+  }
+  header .links {
+    display: flex;
+    gap: 20px;
+    align-items: baseline;
+    white-space: nowrap;
+  }
+  header .links a {
+    font-size: 13px;
+    color: var(--fg);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  header .links a:hover { background: var(--fg); color: var(--bg); }
+  header .links a.meta::after,
+  header .links a.theme::after { content: " →"; color: var(--muted); }
+  main {
+    display: grid;
+    grid-template-columns: 1fr 1px 1fr;
+    gap: 28px;
+  }
+  .rule { background: var(--rule); width: 1px; }
+  .col h2 {
+    font-size: 15px;
+    font-weight: 700;
+    margin: 0 0 4px 0;
+    letter-spacing: 0.02em;
+  }
+  .col .kind {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  a.row {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    gap: 12px;
+    padding: 8px 6px;
+    margin: 0 -6px;
+    border-top: 1px dashed #bbb;
+    color: inherit;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 0.12s ease-out;
+    position: relative;
+  }
+  a.row:first-of-type { border-top: none; }
+  a.row:hover { background: var(--hover); }
+  a.row:hover .label { color: var(--fg); }
+  a.row:focus-visible { outline: 1px solid var(--fg); outline-offset: -1px; }
+  a.row::after {
+    content: "↘";
+    position: absolute;
+    right: 4px;
+    top: 8px;
+    font-size: 10px;
+    color: transparent;
+    transition: color 0.12s ease-out;
+  }
+  a.row:hover::after { color: var(--muted); }
+  .row .label {
+    color: var(--muted);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding-top: 2px;
+    transition: color 0.12s ease-out;
+  }
+  .row .val {
+    font-size: 13px;
+    color: var(--fg);
+  }
+  .row .val .ex {
+    display: block;
+    margin-top: 3px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  section.prose {
+    margin-top: 36px;
+    padding-top: 24px;
+    border-top: 1px solid var(--rule);
+    max-width: 72ch;
+    line-height: 1.65;
+  }
+  section.prose h3 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    font-weight: 400;
+    margin: 0 0 14px 0;
+  }
+  section.prose p {
+    font-size: 14px;
+    margin: 0 0 14px 0;
+  }
+  section.prose p strong { font-weight: 700; }
+  section.prose a {
+    color: var(--fg);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  section.prose a:hover { background: var(--fg); color: var(--bg); }
+  section.prose a.ext::after { content: " ↗"; color: var(--muted); }
+  section.prose code {
+    font-size: 12.5px;
+    background: #e8e7e4;
+    padding: 0 4px;
+  }
+  /*
+   * Highlight journey — research-informed pacing:
+   *   · arrival: instant (eye lands)
+   *   · hold:    1400ms at full color (read-time window, per eye-fixation research)
+   *   · release: 2800ms on Material's "emphasized decelerate" curve
+   *     (cubic-bezier(0.2, 0, 0, 1)) — decisive drop, long graceful tail.
+   * Total journey ~4.2s. Reduced-motion users skip the fade entirely.
+   */
+  .pin {
+    background-color: transparent;
+    transition: background-color 2800ms cubic-bezier(0.2, 0, 0, 1);
+    padding: 0 2px;
+    margin: 0 -2px;
+    border-radius: 0;
+    scroll-margin-top: 48px;
+  }
+  .pin.flash {
+    background-color: var(--flash);
+    transition: background-color 0s;
+  }
+  section.glossary {
+    margin-top: 28px;
+    padding-top: 16px;
+    border-top: 1px dashed #bbb;
+    max-width: 72ch;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  section.glossary .label {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+  }
+  section.glossary ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    columns: 2;
+    column-gap: 28px;
+  }
+  section.glossary li {
+    break-inside: avoid;
+    padding: 3px 0;
+  }
+  section.glossary a { color: var(--fg); }
+  section.glossary a::after { content: " ↗"; color: var(--muted); }
+  footer {
+    border-top: 1px solid var(--rule);
+    margin-top: 32px;
+    padding-top: 14px;
+    font-size: 13px;
+    color: var(--fg);
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+  footer .tag {
+    color: var(--muted);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pin { transition: background-color 0s; }
+    a.row { transition: none; }
+    html { scroll-behavior: auto !important; }
+  }
+</style>
+</head>
+<body>
+  <header>
+    <div>
+      <span class="title">Kit — Orchestrator vs Narrator</span>
+      <span class="sub">Runtime vs Design-time</span>
+    </div>
+    <div class="links">
+      <a class="theme" href="_design/kit-spec-stil.md">Theme</a>
+      <a class="meta" href="orchestrator-vs-narrator-meta.html">How this was made</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="col">
+      <h2>Orchestrator</h2>
+      <div class="kind">Runtime agent · service shape</div>
+
+      <a class="row" href="#o-trigger">
+        <span class="label">Trigger</span>
+        <span class="val">user intent, live<span class="ex">"dinner at Luigi's 19:30 — get me there"</span></span>
+      </a>
+      <a class="row" href="#o-output">
+        <span class="label">Output</span>
+        <span class="val">tool-call chain → world change<span class="ex">route computed · calendar event created</span></span>
+      </a>
+      <a class="row" href="#o-tools">
+        <span class="label">Tools</span>
+        <span class="val">kit_route · kit_cal_add · kit_plan_day</span>
+      </a>
+      <a class="row" href="#o-engine">
+        <span class="label">Engine</span>
+        <span class="val">fast-LLM one-shot<span class="ex">rules + loop tiers added on evidence</span></span>
+      </a>
+      <a class="row" href="#o-latency">
+        <span class="label">Latency</span>
+        <span class="val">sub-second to seconds</span>
+      </a>
+      <a class="row" href="#o-frontdoor">
+        <span class="label">Front door</span>
+        <span class="val">POST /ask · kit serve · CLI · MCP</span>
+      </a>
+      <a class="row" href="#o-g2">
+        <span class="label">G2 role</span>
+        <span class="val">operational spine · reliability demo</span>
+      </a>
+    </section>
+
+    <div class="rule"></div>
+
+    <section class="col">
+      <h2>Narrator</h2>
+      <div class="kind">Design-time agent · artifact shape</div>
+
+      <a class="row" href="#n-trigger">
+        <span class="label">Trigger</span>
+        <span class="val">explain · design · document<span class="ex">"show the Orchestrator vs Narrator distinction"</span></span>
+      </a>
+      <a class="row" href="#n-output">
+        <span class="label">Output</span>
+        <span class="val">concept doc + meta-report<span class="ex">this HTML + its provenance markdown</span></span>
+      </a>
+      <a class="row" href="#n-tools">
+        <span class="label">Tools</span>
+        <span class="val">Read · Glob · Grep · Write<span class="ex">repo as source · docs/ as sink</span></span>
+      </a>
+      <a class="row" href="#n-engine">
+        <span class="label">Engine</span>
+        <span class="val">reasoning-LLM, multi-turn<span class="ex">brainstorm → plan → write</span></span>
+      </a>
+      <a class="row" href="#n-latency">
+        <span class="label">Latency</span>
+        <span class="val">minutes · quality-bound, not latency-bound</span>
+      </a>
+      <a class="row" href="#n-frontdoor">
+        <span class="label">Front door</span>
+        <span class="val">Claude Code session · plan file · slash command</span>
+      </a>
+      <a class="row" href="#n-g2">
+        <span class="label">G2 role</span>
+        <span class="val">portfolio · pitch · Konstellation material</span>
+      </a>
+    </section>
+  </main>
+
+  <section class="prose">
+    <h3>Long form · click any row above to highlight its passage</h3>
+
+    <p>Kit is a small software toolbox. Today it does two things — planning routes and touching the calendar — but the interesting question isn't what Kit does right now, it's what Kit is becoming. The answer: a <strong>service</strong> with one front door that every caller speaks to. A human in a terminal, a Python script, and an <a class="ext" href="https://en.wikipedia.org/wiki/Intelligent_agent">AI agent</a> like Claude Code all reach the same engine — the agent via the <a class="ext" href="https://modelcontextprotocol.io/">Model Context Protocol</a>. One core, no duplicated logic.</p>
+
+    <p>Once you have a single engine, you can put different kinds of mind in front of it. That is where the two agents come in. Same Kit core underneath; very different jobs.</p>
+
+    <p><strong>The Orchestrator is a runtime agent.</strong> You give it <span class="pin" id="o-trigger">an intent in plain language — "dinner at Luigi's at 19:30, get me there"</span> — and it <span class="pin" id="o-tools">picks the right tools in the right order (<code>kit_route</code>, <code>kit_cal_add</code>, <code>kit_plan_day</code>)</span> to make that intent true in the world: <span class="pin" id="o-output">route calculated, calendar event created with a travel buffer, deep links attached</span>. You reach it <span class="pin" id="o-frontdoor">through whichever front door fits — the CLI, a Python import, Claude Code via MCP, or a <code>POST /ask</code> once the service is live</span>. It is judged by <a class="ext" href="https://en.wikipedia.org/wiki/Latency_(engineering)">latency</a> and <span class="pin" id="o-g2">reliability — this is Kit's operational spine, and in a portfolio context its reliability under load is the demo</span>: <span class="pin" id="o-latency">you are standing in a kitchen holding your phone, so seconds matter and mistakes are costly</span>. Internally it runs a <a class="ext" href="https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/overview">tool-use loop</a> — <span class="pin" id="o-engine">an <a class="ext" href="https://en.wikipedia.org/wiki/Large_language_model">LLM</a> emits structured tool calls, reads their results, decides what is next. A small model, one shot if possible, escalate only on evidence</span>.</p>
+
+    <p><strong>The Narrator is a design-time agent.</strong> It does not act in the world; it <span class="pin" id="n-output">produces artifacts — architecture diagrams, concept pieces, spec drafts, this very page</span>. To build them it <span class="pin" id="n-tools">reads the repo with <code>Read</code>, <code>Glob</code>, and <code>Grep</code>, then writes shaped markdown and HTML back into <code>docs/</code></span>. The trigger is <span class="pin" id="n-trigger">not "do this for me" but "explain this, design this, document this"</span>. You invoke it <span class="pin" id="n-frontdoor">through a Claude Code session — a plan file or a slash command — not a service endpoint</span>. Internally it uses <span class="pin" id="n-engine">a reasoning-capable model in many turns: brainstorm into a plan, then plan into prose</span>. The distinction between <a class="ext" href="https://en.wikipedia.org/wiki/Runtime_(program_lifecycle_phase)">runtime and design-time</a> is borrowed straight from programming-language semantics: the Orchestrator runs <em>while</em> the user has a need; the Narrator runs <em>before</em>, shaping what the system is. <span class="pin" id="n-latency">Latency is irrelevant here. A good Narrator output takes minutes and lives for months</span>. What matters is craft, honesty, and legibility — which is why this page carries a <a href="orchestrator-vs-narrator-meta.html">"how this was made"</a> link: a Narrator's product comes with its own <a class="ext" href="https://en.wikipedia.org/wiki/Data_lineage">provenance</a> report attached.</p>
+
+    <p>The trick — and this is the <a class="ext" href="https://en.wikipedia.org/wiki/Bootstrapping_(compilers)">bootstrap</a> move — is that this very page <em>is</em> the first Narrator output. The agent whose architecture is being explained produced the explanation. Kit's design document and Kit's first proof-of-concept land together, in one artifact. The Narrator spec comes next, then the Orchestrator spec. But the thing that makes Kit <span class="pin" id="n-g2">a portfolio-worthy project — pitch-ready, Konstellation-ready</span> starts with a page that can honestly explain itself.</p>
+  </section>
+
+  <section class="glossary" aria-label="Glossary">
+    <div class="label">Glossary</div>
+    <ul>
+      <li><a href="https://en.wikipedia.org/wiki/Intelligent_agent">Intelligent agent</a> — Wikipedia</li>
+      <li><a href="https://modelcontextprotocol.io/">Model Context Protocol (MCP)</a> — spec site</li>
+      <li><a href="https://en.wikipedia.org/wiki/Large_language_model">Large language model (LLM)</a> — Wikipedia</li>
+      <li><a href="https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/overview">Tool use / function calling</a> — Anthropic docs</li>
+      <li><a href="https://en.wikipedia.org/wiki/Runtime_(program_lifecycle_phase)">Runtime (program lifecycle phase)</a> — Wikipedia</li>
+      <li><a href="https://en.wikipedia.org/wiki/Bootstrapping_(compilers)">Bootstrapping</a> — Wikipedia</li>
+      <li><a href="https://en.wikipedia.org/wiki/Data_lineage">Data provenance / lineage</a> — Wikipedia</li>
+      <li><a href="https://en.wikipedia.org/wiki/Latency_(engineering)">Latency</a> — Wikipedia</li>
+    </ul>
+  </section>
+
+  <footer>
+    <span>Narrator first. Orchestrator second. Both on the same Kit core.</span>
+    <span class="tag">v0 · proof-of-concept · 2026-04-18</span>
+  </footer>
+
+<script>
+(function () {
+  // Highlight journey: arrival (instant) → hold (HOLD_MS at full color)
+  // → release (2800ms fade defined on .pin CSS transition).
+  // Total perceptual duration ~4.2s.
+  var HOLD_MS = 1400;
+  var reduceMotion = window.matchMedia
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var rows = document.querySelectorAll('a.row[href^="#"]');
+  function clearFlash() {
+    document.querySelectorAll('.pin.flash').forEach(function (el) {
+      el.classList.remove('flash');
+    });
+  }
+  function jumpAndFlash(id) {
+    var target = document.getElementById(id);
+    if (!target) return;
+    target.scrollIntoView({
+      behavior: reduceMotion ? 'auto' : 'smooth',
+      block: 'center'
+    });
+    clearFlash();
+    void target.offsetWidth;
+    target.classList.add('flash');
+    window.setTimeout(function () {
+      target.classList.remove('flash');
+    }, reduceMotion ? 600 : HOLD_MS);
+  }
+  rows.forEach(function (row) {
+    row.addEventListener('click', function (e) {
+      var href = row.getAttribute('href') || '';
+      if (href.charAt(0) !== '#') return;
+      e.preventDefault();
+      jumpAndFlash(href.slice(1));
+      if (history.replaceState) history.replaceState(null, '', href);
+    });
+  });
+  // If the page loads with a hash, flash that target.
+  if (location.hash && location.hash.length > 1) {
+    window.setTimeout(function () { jumpAndFlash(location.hash.slice(1)); }, 120);
+  }
+})();
+</script>
+
+</body>
+</html>
