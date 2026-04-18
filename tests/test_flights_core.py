@@ -7,7 +7,10 @@ from datetime import date
 import pytest
 from pydantic import ValidationError
 
-from kit.flights.core import FlightSearch
+from datetime import datetime
+
+from kit.flights.core import FlightOption, FlightSearch
+from kit.integrations import CalendarEventCandidate
 
 
 class TestFlightSearch:
@@ -54,3 +57,46 @@ class TestFlightSearch:
         )
         assert q.nights_min == 3
         assert q.nights_max == 7
+
+
+class TestFlightOptionCandidate:
+    def _opt(self, **overrides) -> FlightOption:
+        base = dict(
+            origin="BER",
+            destination="DUB",
+            departure=datetime(2026, 5, 3, 7, 30),
+            price=42.99,
+            currency="EUR",
+            flight_number="FR1234",
+            booking_url="https://ryanair.com/x",
+        )
+        base.update(overrides)
+        return FlightOption(**base)
+
+    def test_candidate_shape_one_way(self):
+        cand = self._opt().as_calendar_event_candidate()
+        assert isinstance(cand, CalendarEventCandidate)
+        assert cand.title == "Flight BER→DUB"
+        assert cand.start == datetime(2026, 5, 3, 7, 30)
+        assert cand.end is None
+        assert cand.duration_seconds == 2 * 60 * 60  # short-haul default
+        assert cand.location == "BER"
+        assert cand.source == "flight"
+        assert cand.source_id == "FR1234"
+        assert cand.booking_url == "https://ryanair.com/x"
+        assert "42.99 EUR" in cand.description
+        assert "BER → DUB" in cand.description
+
+    def test_candidate_shape_round_trip(self):
+        cand = self._opt(
+            return_departure=datetime(2026, 5, 10, 18, 0),
+        ).as_calendar_event_candidate()
+        assert cand.end == datetime(2026, 5, 10, 18, 0)
+        assert cand.duration_seconds is None
+
+    def test_candidate_converts_to_calendar_event(self):
+        event = self._opt().as_calendar_event_candidate().to_calendar_event()
+        assert event.title == "Flight BER→DUB"
+        assert event.duration_minutes == 120
+        assert event.location == "BER"
+        assert "Link: https://ryanair.com/x" in (event.description or "")

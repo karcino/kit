@@ -4,14 +4,7 @@ from __future__ import annotations
 
 from rich.console import Console
 
-from kit.route.core import RouteResult, TransportMode
-
-_MODE_EMOJI = {
-    TransportMode.TRANSIT: "\U0001f687",   # 🚇
-    TransportMode.WALKING: "\U0001f6b6",   # 🚶
-    TransportMode.BICYCLING: "\U0001f6b2", # 🚲
-    TransportMode.DRIVING: "\U0001f697",   # 🚗
-}
+from kit.route.core import RouteResult
 
 
 # ---------------------------------------------------------------------------
@@ -47,31 +40,30 @@ def format_distance(meters: int) -> str:
 def print_route(result: RouteResult, *, console: Console | None = None) -> None:
     """Print a formatted route summary to the terminal using Rich."""
     con = console or Console()
-    emoji = _MODE_EMOJI.get(result.mode, "")
 
     con.print(
-        f"\n{emoji} [bold]{result.origin}[/bold] \u2192 [bold]{result.destination}[/bold]"
+        f"\n[bold]{result.origin}[/bold] \u2192 [bold]{result.destination}[/bold]"
     )
     con.print(
         f"   {result.mode.value.title()} \u00b7 {result.duration_human} \u00b7 "
-        f"Abfahrt {result.departure.strftime('%H:%M')} \u2192 "
-        f"Ankunft {result.arrival.strftime('%H:%M')}\n"
+        f"Depart {(result.departure.astimezone() if result.departure.tzinfo else result.departure).strftime('%H:%M')} \u2192 "
+        f"Arrive {(result.arrival.astimezone() if result.arrival.tzinfo else result.arrival).strftime('%H:%M')}\n"
     )
 
     for i, step in enumerate(result.steps, 1):
         parts = [f"   {i}. {step.instruction}"]
         if step.transit_line:
-            parts.append(f" \u00b7 {step.transit_stops} Stationen")
+            parts.append(f" \u00b7 {step.transit_stops} stops")
         parts.append(f" \u00b7 {step.duration_human}")
         con.print("".join(parts))
 
     con.print()
     if result.deep_links.google_maps:
-        con.print(f"   \U0001f4ce Google Maps: {result.deep_links.google_maps}")
+        con.print(f"   Google Maps: {result.deep_links.google_maps}")
     if result.deep_links.db_navigator:
-        con.print(f"   \U0001f4ce DB Navigator: {result.deep_links.db_navigator}")
+        con.print(f"   DB Navigator: {result.deep_links.db_navigator}")
     if result.deep_links.apple_maps:
-        con.print(f"   \U0001f4ce Apple Maps: {result.deep_links.apple_maps}")
+        con.print(f"   Apple Maps: {result.deep_links.apple_maps}")
     con.print()
 
 

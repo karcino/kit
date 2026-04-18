@@ -90,6 +90,7 @@ def route_plan(
 def route_multi(
     stops: List[str] = typer.Argument(..., help="Two or more locations"),
     mode: TransportMode = typer.Option(TransportMode.TRANSIT, "--mode", "-m", help="Transport mode"),
+    depart: Optional[str] = typer.Option(None, "--depart", "-d", help="Departure HH:MM or ISO-8601"),
     output_json: bool = typer.Option(False, "--json", help="JSON output for agents"),
 ) -> None:
     """Plan a multi-stop route (A -> B -> C)."""
@@ -97,8 +98,12 @@ def route_multi(
         console.print("[red]Error: multi-stop route requires at least 2 stops[/red]")
         raise typer.Exit(1)
 
+    kwargs: dict = {"mode": mode}
+    if depart:
+        kwargs["departure"] = _parse_time(depart)
+
     try:
-        results = plan_multi_route(stops, mode=mode)
+        results = plan_multi_route(stops, **kwargs)
     except KitError as e:
         console.print(f"[red]Error: {e}[/red]")
         raise typer.Exit(2)

@@ -64,7 +64,8 @@ def test_db_navigator_contains_stations():
 
 
 def test_db_navigator_with_departure_time():
-    dt = datetime(2026, 3, 25, 18, 30, tzinfo=timezone(timedelta(hours=1)))
+    # Naive datetime passes through unchanged (no tz conversion).
+    dt = datetime(2026, 3, 25, 18, 30)
     links = generate_deep_links("A", "B", TransportMode.TRANSIT, departure=dt)
     assert links.db_navigator is not None
     # time should appear as 18:30 or URL-encoded 18%3A30
@@ -72,9 +73,29 @@ def test_db_navigator_with_departure_time():
 
 
 def test_db_navigator_with_departure_date():
-    dt = datetime(2026, 3, 25, 18, 30, tzinfo=timezone(timedelta(hours=1)))
+    dt = datetime(2026, 3, 25, 18, 30)
     links = generate_deep_links("A", "B", TransportMode.TRANSIT, departure=dt)
     assert "25.03.2026" in links.db_navigator
+
+
+def test_db_navigator_converts_utc_to_local_tz():
+    """Regression: tz-aware UTC datetime must be converted to local time
+    before formatting date/time params (P0 bug: showed UTC, off by up to 1 day).
+    """
+    import time as _time
+
+    # Pick a UTC instant and compute what local should show.
+    utc_dt = datetime(2026, 4, 18, 22, 26, tzinfo=timezone.utc)
+    local_dt = utc_dt.astimezone()  # system local tz
+    expected_date = local_dt.strftime("%d.%m.%Y")
+    expected_time = local_dt.strftime("%H:%M")
+
+    links = generate_deep_links("A", "B", TransportMode.TRANSIT, departure=utc_dt)
+    assert links.db_navigator is not None
+    assert f"date={expected_date.replace('.', '.')}" in links.db_navigator or expected_date in links.db_navigator
+    # time may be URL-encoded
+    assert expected_time in links.db_navigator or expected_time.replace(":", "%3A") in links.db_navigator
+    _ = _time  # keep import usage minimal
 
 
 # --- Apple Maps ---

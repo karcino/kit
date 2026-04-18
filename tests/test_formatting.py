@@ -141,7 +141,7 @@ class TestPrintRoute:
         print_route(sample_route)
         out = capsys.readouterr().out
         assert "U8" in out
-        assert "Stationen" in out
+        assert "stops" in out
 
     def test_shows_deep_links(self, sample_route: RouteResult, capsys):
         print_route(sample_route)
@@ -154,6 +154,28 @@ class TestPrintRoute:
         out = capsys.readouterr().out
         assert "A" in out
         assert "B" in out
+
+    def test_departure_printed_in_local_tz(self, capsys):
+        """Regression: UTC-aware datetimes must be converted to local tz before
+        formatting Depart/Arrive (P0 bug: showed UTC wall clock)."""
+        utc_dep = datetime(2026, 4, 18, 22, 26, tzinfo=timezone.utc)
+        utc_arr = datetime(2026, 4, 18, 22, 46, tzinfo=timezone.utc)
+        local_dep = utc_dep.astimezone().strftime("%H:%M")
+        local_arr = utc_arr.astimezone().strftime("%H:%M")
+        r = RouteResult(
+            origin="X",
+            destination="Y",
+            mode=TransportMode.TRANSIT,
+            duration_seconds=1200,
+            departure=utc_dep,
+            arrival=utc_arr,
+            steps=[],
+            deep_links=DeepLinks(google_maps="https://maps.google.com"),
+        )
+        print_route(r)
+        out = capsys.readouterr().out
+        assert f"Depart {local_dep}" in out
+        assert f"Arrive {local_arr}" in out
 
 
 # ---------------------------------------------------------------------------

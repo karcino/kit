@@ -106,8 +106,13 @@ def _db_navigator_link(
 ) -> str:
     params: dict[str, str] = {"S": origin, "Z": destination}
     if departure:
-        params["date"] = departure.strftime("%d.%m.%Y")
-        params["time"] = departure.strftime("%H:%M")
+        # Convert tz-aware datetimes to system local time so date/time params
+        # reflect the user's wall clock (naive datetimes pass through unchanged).
+        local_dep = (
+            departure.astimezone() if departure.tzinfo is not None else departure
+        )
+        params["date"] = local_dep.strftime("%d.%m.%Y")
+        params["time"] = local_dep.strftime("%H:%M")
     return f"https://reiseauskunft.bahn.de/bin/query.exe/dn?{urlencode(params)}"
 
 

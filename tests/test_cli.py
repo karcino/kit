@@ -159,6 +159,21 @@ def test_route_multi(mock_multi):
 
 
 @patch("kit.route.commands.plan_multi_route")
+def test_route_multi_depart_option(mock_multi):
+    mock_multi.return_value = [
+        _make_route_result(origin="A", destination="B"),
+        _make_route_result(origin="B", destination="C"),
+    ]
+    result = runner.invoke(app, ["route", "multi", "A", "B", "C", "--depart", "18:30"])
+    assert result.exit_code == 0
+    mock_multi.assert_called_once()
+    call_kwargs = mock_multi.call_args.kwargs
+    assert call_kwargs.get("departure") is not None
+    assert call_kwargs["departure"].hour == 18
+    assert call_kwargs["departure"].minute == 30
+
+
+@patch("kit.route.commands.plan_multi_route")
 def test_route_multi_json(mock_multi):
     mock_multi.return_value = [
         _make_route_result(origin="A", destination="B"),
