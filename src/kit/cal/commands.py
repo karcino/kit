@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 
 import typer
 from rich.console import Console
+from rich.panel import Panel
 from rich.table import Table
 
 from kit.cal.core import CalendarEvent, TravelBuffer
@@ -44,6 +45,11 @@ def _date_range(target_date) -> tuple[str, str]:
     return start.isoformat(), end.isoformat()
 
 
+def _render_error(exc: Exception) -> None:
+    """Render a CalendarError (or any KitError) in a red Rich panel."""
+    console.print(Panel(str(exc), title="Error", border_style="red"))
+
+
 def _render_events(events: list[dict], label: str) -> None:
     """Render events as a Rich table."""
     if not events:
@@ -64,6 +70,21 @@ def _render_events(events: list[dict], label: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# cal auth
+# ---------------------------------------------------------------------------
+
+@cal_app.command()
+def auth() -> None:
+    """Run the Google Calendar OAuth flow and cache the token locally."""
+    try:
+        GoogleCalendarClient.setup()
+        console.print("[green]\u2713 Calendar authenticated. Token saved.[/green]")
+    except KitError as e:
+        _render_error(e)
+        raise typer.Exit(2)
+
+
+# ---------------------------------------------------------------------------
 # cal add
 # ---------------------------------------------------------------------------
 
@@ -71,7 +92,7 @@ def _render_events(events: list[dict], label: str) -> None:
 def add(
     title: str = typer.Argument(..., help="Event title"),
     at: str | None = typer.Option(None, "--at", "-a", help="Start time HH:MM"),
-    duration: str = typer.Option("60", "--duration", "-d", help="Duration in minutes (or e.g. 1h, 90m)"),
+    duration: str = typer.Option("60", "--duration", "-d", help="Duration (e.g. 60m, 1h, 90m). Default: 60m."),
     location: str | None = typer.Option(None, "--location", "-l", help="Event location"),
     route_from: str | None = typer.Option(None, "--route-from", help="Add travel buffer from location"),
     description: str | None = typer.Option(None, "--description", help="Event description"),
@@ -140,7 +161,7 @@ def add(
             console.print(f"[green]\u2713 Event created: {title}[/green]")
 
     except KitError as e:
-        console.print(f"[red]Error: {e}[/red]")
+        _render_error(e)
         raise typer.Exit(2)
 
 
@@ -163,6 +184,48 @@ def tomorrow(
     """Show tomorrow's events."""
     tmrw = datetime.now().date() + timedelta(days=1)
     _list_for_date(tmrw, "tomorrow", output_json)
+
+
+# ---------------------------------------------------------------------------
+# cal week
+# ---------------------------------------------------------------------------
+
+@cal_app.command()
+def week(
+    output_json: bool = typer.Option(False, "--json", help="JSON output for agents"),
+) -> None:
+    """Show events for the next 7 days (today inclusive)."""
+    start_date = datetime.now().date()
+    end_date = start_date + timedelta(days=7)
+    start_iso = datetime(start_date.year, start_date.month, start_date.day,
+                         0, 0, 0, tzinfo=_CET).isoformat()
+    end_iso = datetime(end_date.year, end_date.month, end_date.day,
+                       23, 59, 59, tzinfo=_CET).isoformat()
+    try:
+        client = GoogleCalendarClient()
+        events = client.list_events(time_min=start_iso, time_max=end_iso, max_results=100)
+
+        if output_json:
+            print(json.dumps(events, indent=2, default=str))
+            return
+
+        if not events:
+            Console().print("[dim]No events.[/dim]")
+            return
+
+        # Group events by date, emit one mini-table per day.
+        by_date: dict[str, list[dict]] = {}
+        for ev in events:
+            start_raw = ev.get("start", {}).get("dateTime", ev.get("start", {}).get("date", ""))
+            day = start_raw[:10]
+            by_date.setdefault(day, []).append(ev)
+
+        for day in sorted(by_date.keys()):
+            _render_events(by_date[day], day)
+
+    except KitError as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(2)
 
 
 # ---------------------------------------------------------------------------
@@ -203,7 +266,7 @@ def delete(
             console.print(f"[green]\u2713 Deleted event: {event_id}[/green]")
 
     except KitError as e:
-        console.print(f"[red]Error: {e}[/red]")
+        _render_error(e)
         raise typer.Exit(2)
 
 
@@ -224,5 +287,5 @@ def _list_for_date(target_date, label: str, output_json: bool) -> None:
             _render_events(events, label)
 
     except KitError as e:
-        console.print(f"[red]Error: {e}[/red]")
+        _render_error(e)
         raise typer.Exit(2)

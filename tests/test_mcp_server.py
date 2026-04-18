@@ -371,7 +371,7 @@ class TestKitPlanDay:
         assert result["schedule"][1]["time"] == "10:00"
         assert result["schedule"][2]["time"] == "11:00"
 
-    @patch("kit.cal.mcp_tools.plan_route")
+    @patch("kit.route.planner.plan_route")
     def test_kit_plan_day_with_locations(self, mock_plan, mock_config):
         """kit_plan_day should add travel time between located tasks."""
         mock_plan.return_value = _sample_route_result(duration_seconds=1800)  # 30 min

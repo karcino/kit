@@ -285,6 +285,56 @@ class TestCalTomorrow:
         assert isinstance(data, list)
 
 
+class TestCalWeek:
+    @patch("kit.cal.commands.GoogleCalendarClient")
+    def test_week_shows_events(self, MockClient):
+        mock = _mock_client()
+        MockClient.return_value = mock
+
+        result = runner.invoke(app, ["cal", "week"])
+
+        assert result.exit_code == 0
+        assert "Team Standup" in result.output
+        mock.list_events.assert_called_once()
+        # Spans a 7-day window
+        kwargs = mock.list_events.call_args[1]
+        assert "time_min" in kwargs and "time_max" in kwargs
+
+    @patch("kit.cal.commands.GoogleCalendarClient")
+    def test_week_json(self, MockClient):
+        mock = _mock_client()
+        MockClient.return_value = mock
+
+        result = runner.invoke(app, ["cal", "week", "--json"])
+
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert isinstance(data, list)
+        assert len(data) == 3
+
+    @patch("kit.cal.commands.GoogleCalendarClient")
+    def test_week_no_events(self, MockClient):
+        mock = _mock_client()
+        mock.list_events.return_value = []
+        MockClient.return_value = mock
+
+        result = runner.invoke(app, ["cal", "week"])
+
+        assert result.exit_code == 0
+        assert "No events" in result.output
+
+    @patch("kit.cal.commands.GoogleCalendarClient")
+    def test_week_error_handling(self, MockClient):
+        mock = _mock_client()
+        MockClient.return_value = mock
+        from kit.errors import CalendarError
+        mock.list_events.side_effect = CalendarError("Auth failed")
+
+        result = runner.invoke(app, ["cal", "week"])
+
+        assert result.exit_code != 0
+
+
 # ---------------------------------------------------------------------------
 # cal list --date
 # ---------------------------------------------------------------------------

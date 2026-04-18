@@ -9,6 +9,7 @@ from kit.cal.commands import cal_app
 from kit.docs.commands import docs_app
 from kit.flights.commands import flights_app
 from kit.route.commands import route_app
+from kit.plan_day_cmd import plan_day_cmd
 from kit.setup_cmd import setup
 from kit.youtube.commands import youtube_app
 
@@ -41,6 +42,7 @@ app.add_typer(docs_app, name="docs")
 app.add_typer(flights_app, name="flights")
 app.add_typer(youtube_app, name="youtube")
 app.command()(setup)
+app.command(name="plan-day")(plan_day_cmd)
 
 
 if __name__ == "__main__":

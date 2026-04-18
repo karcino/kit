@@ -15,7 +15,10 @@ _console = Console()
 def setup(
     check: bool = typer.Option(False, "--check", help="Validate current config."),
 ) -> None:
-    """Interactive setup for kit: home address, API key, transport mode."""
+    """Interactive setup for kit: home address, API key, transport mode.
+
+    Run without flags to launch the interactive wizard.
+    """
     if check:
         _run_check()
         return

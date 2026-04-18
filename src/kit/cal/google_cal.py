@@ -22,7 +22,7 @@ class GoogleCalendarClient:
 
             token_path = (self._credentials_dir or Path.home() / ".config" / "kit") / "token.json"
             if not token_path.exists():
-                raise CalendarError("Not authenticated. Run: kit setup")
+                raise CalendarError("Not authenticated. Run: kit cal auth")
             creds = Credentials.from_authorized_user_file(str(token_path))
             if creds.expired and creds.refresh_token:
                 from google.auth.transport.requests import Request

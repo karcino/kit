@@ -13,7 +13,7 @@ from kit.cal.google_cal import GoogleCalendarClient
 from kit.config import KitConfig
 from kit.errors import CalendarError, KitError
 from kit.integrations import CalendarEventCandidate
-from kit.route.planner import plan_route
+from kit.route.planner import plan_day, plan_route
 
 # Berlin timezone (CET = UTC+1, CEST = UTC+2). Simplified to +1 here;
 # the Google Calendar API handles DST via the timeZone field.
@@ -268,59 +268,8 @@ def register_cal_tools(mcp: FastMCP, config: KitConfig) -> None:
             if date
             else datetime.now(tz=_TZ).date()
         )
-
-        parsed_tasks = []
-        for task in tasks:
-            if " @ " in task:
-                name, loc = task.rsplit(" @ ", 1)
-                parsed_tasks.append({"name": name.strip(), "location": loc.strip()})
-            else:
-                parsed_tasks.append({"name": task.strip(), "location": None})
-
-        # Build a simple sequential schedule
-        current_time = datetime(
-            schedule_date.year, schedule_date.month, schedule_date.day,
-            start_hour, 0, tzinfo=_TZ,
+        result = plan_day(
+            tasks, schedule_date=schedule_date,
+            start_hour=start_hour, end_hour=end_hour, config=config,
         )
-        schedule = []
-        prev_location = None
-
-        for task in parsed_tasks:
-            travel_info = None
-            # Calculate travel time between consecutive located tasks
-            if prev_location and task["location"]:
-                try:
-                    route = plan_route(prev_location, task["location"], config=config)
-                    travel_minutes = (route.duration_seconds + 59) // 60  # round up
-                    travel_info = {
-                        "from": prev_location,
-                        "to": task["location"],
-                        "duration_minutes": travel_minutes,
-                        "duration_human": route.duration_human,
-                        "deep_links": route.deep_links.model_dump(),
-                    }
-                    current_time += timedelta(minutes=travel_minutes + 5)  # +5 buffer
-                except KitError:
-                    current_time += timedelta(minutes=15)  # fallback buffer
-
-            entry = {
-                "time": current_time.strftime("%H:%M"),
-                "task": task["name"],
-                "location": task["location"],
-            }
-            if travel_info:
-                entry["travel"] = travel_info
-
-            schedule.append(entry)
-            current_time += timedelta(minutes=60)  # default task duration
-
-            if task["location"]:
-                prev_location = task["location"]
-
-        result = {
-            "date": str(schedule_date),
-            "schedule": schedule,
-            "start": f"{start_hour:02d}:00",
-            "end": f"{end_hour:02d}:00",
-        }
         return json.dumps(result, indent=2, ensure_ascii=False)

@@ -11,8 +11,8 @@ from pydantic import BaseModel, Field, model_validator
 class FlightSearch(BaseModel):
     """A user-facing flight search query.
 
-    Translated into the Apify actor's input schema inside
-    kit.flights.apify._build_actor_input.
+    Executed against Ryanair's public fare API inside
+    kit.flights.ryanair.RyanairFareClient.run_search.
     """
 
     origin: str = Field(description="IATA code (e.g. 'BER') or airport name")
@@ -60,19 +60,25 @@ class FlightOption(BaseModel):
         """
         from kit.integrations import CalendarEventCandidate  # lazy — avoids parse-time coupling
 
-        fn = self.flight_number or f"{self.origin}→{self.destination}"
         desc_parts = [
             f"{self.origin} → {self.destination}",
             f"{self.price} {self.currency}",
         ]
+        if self.flight_number:
+            desc_parts.append(f"Flight: {self.flight_number}")
         if self.booking_url:
             desc_parts.append(f"Book: {self.booking_url}")
 
+        # Short-haul default: 2h block when only departure is known.
+        end = self.return_departure
+        duration_seconds = None if end is not None else 2 * 60 * 60
+
         return CalendarEventCandidate(
-            title=f"Flight {fn}",
+            title=f"Flight {self.origin}→{self.destination}",
             start=self.departure,
-            end=self.return_departure,
-            location=self.destination,
+            end=end,
+            duration_seconds=duration_seconds,
+            location=self.origin,
             description="\n".join(desc_parts),
             source="flight",
             source_id=self.flight_number,

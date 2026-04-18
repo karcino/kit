@@ -27,8 +27,8 @@ def register_flights_tools(mcp: FastMCP, config: KitConfig) -> None:
     ) -> str:
         """Search Ryanair for cheapest flights in a date window.
 
-        Uses the Apify actor saswave/ryanair-best-price-scraper. Returns all
-        matching options sorted by price, plus the cheapest pick.
+        Uses Ryanair's public fare API directly (no third-party service).
+        Returns all matching options sorted by price, plus the cheapest pick.
 
         Args:
             origin: IATA code (e.g. 'BER') or airport name.

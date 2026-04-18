@@ -134,7 +134,9 @@ def cmd_sync(
     doc: Path = typer.Argument(..., help="Path to the child doc to sync"),
     vault: Path = typer.Option(DEFAULT_VAULT, "--vault", help="Vault root"),
 ) -> None:
-    """Stamp the current parent content_hash into a child doc's frontmatter.
+    """Record the parent doc's content hash into a child, marking the child as up-to-date.
+
+    Example: kit docs sync path/to/child.md
 
     Call this AFTER reviewing a stale child and deciding it no longer needs
     further edits relative to the parent's new content.
