@@ -55,6 +55,65 @@ class CalendarEventCandidate(BaseModel):
     source_id: str | None = None   # original ID or flight number
     booking_url: str | None = None
 
+    def to_calendar_event(self, calendar_id: str = "primary") -> "CalendarEvent":  # noqa: F821
+        """Convert this candidate into a concrete ``CalendarEvent``.
+
+        Performs a LAZY import of ``kit.cal.core.CalendarEvent`` so the cal
+        module is never loaded at parse time — this keeps ``kit.integrations``
+        free of tool-module coupling.
+
+        Field mapping
+        -------------
+        title            → title
+        start            → start
+        end / duration_seconds → duration_minutes (derived)
+        location         → location
+        description + booking_url → description (url appended if present)
+        — (source, source_id are retained only in ``description``)
+
+        Raises
+        ------
+        KitError subclass (CalendarError) if dates are inconsistent
+        (e.g. ``end`` strictly before ``start``).
+        """
+        from kit.cal.core import CalendarEvent  # lazy — avoids parse-time coupling
+        from kit.errors import CalendarError
+
+        # Derive duration
+        if self.end is not None:
+            if self.end < self.start:
+                raise CalendarError(
+                    f"CalendarEventCandidate has end ({self.end.isoformat()}) "
+                    f"before start ({self.start.isoformat()})"
+                )
+            duration_minutes = max(1, int((self.end - self.start).total_seconds() // 60))
+        elif self.duration_seconds is not None:
+            if self.duration_seconds <= 0:
+                raise CalendarError(
+                    f"CalendarEventCandidate has non-positive duration_seconds "
+                    f"({self.duration_seconds})"
+                )
+            duration_minutes = max(1, self.duration_seconds // 60)
+        else:
+            duration_minutes = 60  # sensible default matching CalendarEvent
+
+        # Merge description with booking URL (keep the candidate's url visible).
+        desc_parts: list[str] = []
+        if self.description:
+            desc_parts.append(self.description)
+        if self.booking_url:
+            desc_parts.append(f"Link: {self.booking_url}")
+        description = "\n".join(desc_parts) if desc_parts else None
+
+        return CalendarEvent(
+            title=self.title,
+            start=self.start,
+            duration_minutes=duration_minutes,
+            location=self.location,
+            description=description,
+            calendar_id=calendar_id,
+        )
+
 
 class RouteLeg(BaseModel):
     """A routable segment — two locations with optional timing.

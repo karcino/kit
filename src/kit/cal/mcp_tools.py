@@ -11,7 +11,8 @@ from mcp.server.fastmcp import FastMCP
 from kit.cal.core import CalendarEvent, TravelBuffer
 from kit.cal.google_cal import GoogleCalendarClient
 from kit.config import KitConfig
-from kit.errors import KitError
+from kit.errors import CalendarError, KitError
+from kit.integrations import CalendarEventCandidate
 from kit.route.planner import plan_route
 
 # Berlin timezone (CET = UTC+1, CEST = UTC+2). Simplified to +1 here;
@@ -104,6 +105,94 @@ def register_cal_tools(mcp: FastMCP, config: KitConfig) -> None:
             "title": title,
         }
         return json.dumps(results, indent=2, default=str)
+
+    @mcp.tool()
+    def kit_cal_add_from_candidate(
+        title: str,
+        start: str,
+        end: str | None = None,
+        duration_seconds: int | None = None,
+        location: str | None = None,
+        description: str | None = None,
+        source: str = "unknown",
+        source_id: str | None = None,
+        booking_url: str | None = None,
+        calendar_id: str = "primary",
+    ) -> str:
+        """Create a Google Calendar event from a ``CalendarEventCandidate``.
+
+        Cross-tool entry point (option d — Pydantic interchange). Any tool that
+        emits a ``CalendarEventCandidate`` (flights, route, watch, …) can
+        dump its model and call this MCP tool — cal never imports those tools
+        directly.
+
+        Field mapping (candidate → CalendarEvent):
+            title → title
+            start → start (ISO 8601 datetime)
+            end or duration_seconds → duration_minutes (end wins)
+            location → location
+            description + booking_url → description (url appended)
+            source / source_id → retained on the candidate only
+
+        Args:
+            title: Event title.
+            start: ISO 8601 datetime string (e.g. "2026-05-03T07:30:00+01:00").
+            end: Optional ISO 8601 end datetime. If omitted, duration_seconds used.
+            duration_seconds: Fallback duration when end is unknown.
+            location: Event location.
+            description: Event description.
+            source: Origin tag ("flight" | "route" | "manual" | …). Default "unknown".
+            source_id: Source-specific ID (e.g. flight number).
+            booking_url: Optional URL appended to the description.
+            calendar_id: Target calendar (default 'primary').
+        """
+        # Parse ISO datetimes — strict, no natural-language fallback.
+        try:
+            start_dt = datetime.fromisoformat(start)
+        except ValueError as e:
+            raise CalendarError(f"Invalid 'start' datetime (must be ISO 8601): {start}") from e
+
+        end_dt: datetime | None = None
+        if end is not None:
+            try:
+                end_dt = datetime.fromisoformat(end)
+            except ValueError as e:
+                raise CalendarError(f"Invalid 'end' datetime (must be ISO 8601): {end}") from e
+
+        # Build the candidate (Pydantic validation happens here).
+        candidate = CalendarEventCandidate(
+            title=title,
+            start=start_dt,
+            end=end_dt,
+            duration_seconds=duration_seconds,
+            location=location,
+            description=description,
+            source=source,
+            source_id=source_id,
+            booking_url=booking_url,
+        )
+
+        # Convert via the integration-module adapter (lazy-imports cal.core).
+        event = candidate.to_calendar_event(calendar_id=calendar_id)
+
+        client = GoogleCalendarClient()
+        ev_result = client.add_event(event)
+
+        return json.dumps(
+            {
+                "event": {
+                    "id": ev_result.get("id"),
+                    "title": event.title,
+                    "start": event.start.isoformat() if event.start else None,
+                    "end": event.end.isoformat() if event.end else None,
+                    "location": event.location,
+                    "calendar_id": event.calendar_id,
+                },
+                "candidate": candidate.model_dump(mode="json"),
+            },
+            indent=2,
+            default=str,
+        )
 
     @mcp.tool()
     def kit_cal_today() -> str:
