@@ -21,6 +21,8 @@ dependencies = [
     "mcp>=1.0",
     "dateparser>=1.2",
     "tomli-w>=1.0",
+    "httpx>=0.27",
+    "youtube-transcript-api>=1.0",
 ]
 
 [project.optional-dependencies]
@@ -41,6 +43,7 @@ packages = ["src/kit"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["src"]
 markers = ["smoke: real API calls (deselect with '-m not smoke')"]
 
 [tool.ruff]

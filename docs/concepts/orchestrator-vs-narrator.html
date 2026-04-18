@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kit — Orchestrator vs Narrator</title>
+<style>
+  :root {
+    --ink: #1a1a1a;
+    --paper: #f5f2ea;
+    --muted: #6b6b6b;
+    --rule: #1a1a1a;
+    --hi:  rgba(26,26,26,0.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #eeebe0;
+      --paper: #141414;
+      --muted: #8a8a8a;
+      --rule: #eeebe0;
+      --hi:  rgba(238,235,224,0.08);
+    }
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 13px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 56px 32px 40px;
+  }
+
+  .meta-link {
+    display: inline-block;
+    color: var(--ink);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    margin-bottom: 32px;
+  }
+  .meta-link:hover { color: var(--muted); }
+
+  h1 {
+    font-size: 17px;
+    font-weight: 500;
+    margin-bottom: 4px;
+    letter-spacing: -0.005em;
+  }
+
+  .sub {
+    color: var(--muted);
+    font-size: 12px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .col {
+    padding: 28px 24px;
+  }
+  .col + .col {
+    border-left: 1px solid var(--rule);
+  }
+
+  .axis {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  .name {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 2px;
+    letter-spacing: -0.01em;
+  }
+
+  .kind {
+    color: var(--muted);
+    font-size: 12px;
+    margin-bottom: 24px;
+  }
+
+  dl {
+    display: grid;
+    grid-template-columns: 90px 1fr;
+    gap: 10px 14px;
+    font-size: 12.5px;
+  }
+
+  dt {
+    color: var(--muted);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding-top: 3px;
+  }
+
+  code {
+    font-family: inherit;
+    background: var(--hi);
+    padding: 1px 5px;
+    border-radius: 1px;
+  }
+
+  footer {
+    margin-top: 36px;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+    text-align: center;
+  }
+  footer .sep {
+    margin: 0 10px;
+  }
+
+  @media (max-width: 680px) {
+    .grid { grid-template-columns: 1fr; }
+    .col + .col { border-left: none; border-top: 1px solid var(--rule); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="meta-link" href="orchestrator-vs-narrator-meta.md">How this was made →</a>
+  <h1>Kit — Orchestrator vs Narrator</h1>
+  <p class="sub">Runtime vs Design-time. One substrate, two jobs.</p>
+</header>
+
+<section class="grid">
+
+  <div class="col">
+    <div class="axis">Runtime agent</div>
+    <div class="name">Orchestrator</div>
+    <div class="kind">does a thing in the world</div>
+    <dl>
+      <dt>Trigger</dt>
+      <dd><code>kit ask "book dinner at Luigi, 19:30"</code></dd>
+      <dt>Output</dt>
+      <dd>calendar event · route · travel buffer</dd>
+      <dt>Tools</dt>
+      <dd>kit.route · kit.cal · kit.docs · …</dd>
+      <dt>Latency</dt>
+      <dd>sub-second (fast-LLM, one-shot, parallel)</dd>
+      <dt>Fails when</dt>
+      <dd>wrong tool or wrong params</dd>
+      <dt>G2 role</dt>
+      <dd>does the demos</dd>
+    </dl>
+  </div>
+
+  <div class="col">
+    <div class="axis">Design-time agent</div>
+    <div class="name">Narrator</div>
+    <div class="kind">explains a thing about the system</div>
+    <dl>
+      <dt>Trigger</dt>
+      <dd><code>kit reflect "what if we add plugins?"</code></dd>
+      <dt>Output</dt>
+      <dd>diagrams · concept docs · scenarios</dd>
+      <dt>Tools</dt>
+      <dd>retrieval over code · notion · vault · git</dd>
+      <dt>Latency</dt>
+      <dd>quality &gt; speed</dd>
+      <dt>Fails when</dt>
+      <dd>plausible-sounding nonsense</dd>
+      <dt>G2 role</dt>
+      <dd>documents the demos · <em>is</em> the demos</dd>
+    </dl>
+  </div>
+
+</section>
+
+<footer>
+  Narrator first
+  <span class="sep">·</span>
+  Orchestrator second
+  <span class="sep">·</span>
+  Both on the same Kit core
+</footer>
+
+</body>
+</html>

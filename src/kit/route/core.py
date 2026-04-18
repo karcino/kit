@@ -64,6 +64,24 @@ class RouteResult(BaseModel):
     def duration_human(self) -> str:
         return _format_duration(self.duration_seconds)
 
+    # ── Cross-tool interchange (option d — kit.integrations) ──────────────
+
+    def as_route_leg(self) -> "RouteLeg":
+        """Return this result as a RouteLeg interchange shape.
+
+        Consumers (e.g. a day-planner) can work with RouteLeg without
+        importing ``kit.route`` directly.
+        """
+        from kit.integrations import RouteLeg  # lazy — avoids parse-time coupling
+
+        return RouteLeg(
+            origin=self.origin,
+            destination=self.destination,
+            departure=self.departure,
+            duration_seconds=self.duration_seconds,
+            mode=self.mode.value,
+        )
+
 
 def _format_duration(seconds: int) -> str:
     hours, remainder = divmod(seconds, 3600)

@@ -6,7 +6,9 @@ from mcp.server.fastmcp import FastMCP
 
 from kit.cal.mcp_tools import register_cal_tools
 from kit.config import load_config
+from kit.flights.mcp_tools import register_flights_tools
 from kit.route.mcp_tools import register_route_tools
+from kit.youtube.mcp_tools import register_youtube_tools
 
 mcp = FastMCP("kit")
 
@@ -16,6 +18,8 @@ def _register_tools() -> None:
     config = load_config()
     register_route_tools(mcp, config)
     register_cal_tools(mcp, config)
+    register_flights_tools(mcp, config)
+    register_youtube_tools(mcp, config)
 
 
 # Register tools at import time so they're available when the server starts.

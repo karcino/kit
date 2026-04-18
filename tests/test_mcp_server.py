@@ -430,6 +430,8 @@ class TestMCPServerIntegration:
             "kit_cal_today",
             "kit_cal_list",
             "kit_plan_day",
+            "kit_flight_search",
+            "kit_youtube_transcript",
         }
         assert expected.issubset(tool_names), f"Missing tools: {expected - tool_names}"
 

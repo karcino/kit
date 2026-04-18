@@ -54,7 +54,7 @@ def save_config(config: KitConfig, config_dir: Path | None = None) -> None:
     config_dir = config_dir or get_config_dir()
     config_dir.mkdir(parents=True, exist_ok=True)
     config_file = config_dir / "config.toml"
-    data = {
+    data: dict[str, dict[str, object]] = {
         "meta": {"version": config.meta_version},
         "general": {"default_mode": config.default_mode},
         "google_maps": {},

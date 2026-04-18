@@ -23,3 +23,11 @@ class APIError(KitError):
 
 class CalendarError(KitError):
     """Calendar API error."""
+
+
+class FlightSearchError(KitError):
+    """Flight search failed (invalid query, scraper error, or upstream timeout)."""
+
+
+class YouTubeError(KitError):
+    """YouTube transcript fetch failed (transcripts disabled, video unavailable, etc.)."""
